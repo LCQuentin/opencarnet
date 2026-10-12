@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# macOS
+.DS_Store
+
+# Local / personal (never commit your own config or outputs)
+config.json
+.venv/
+out/
+work/
+bundles/
+analyses/
+*.session

@@ -1,0 +1,33 @@
+{
+  "_comment": "Exemple de config NEUTRE (aucun chemin perso). Copier vers ~/.config/opencarnet/config.json et adapter.",
+  "root": "./out",
+  "inbox_dir": "inbox",
+  "index": { "scan_dir": "." },
+  "default_theme": "general",
+  "ai_themes": ["tech"],
+  "themes": {
+    "general": "general",
+    "tech": "tech",
+    "business": "business",
+    "culture": "culture",
+    "lifestyle": "lifestyle"
+  },
+  "frontmatter": {
+    "type": "note",
+    "default_categorie": "note",
+    "default_statut": "to-review",
+    "base_tags": ["imported"],
+    "date_fields": ["created", "updated"]
+  },
+  "prompt_extra_fields": {},
+  "routes": {
+    "prompt":       { "family": "prompt",   "categorie": "prompt", "folder": "prompts", "tags": ["prompt"] },
+    "skill":        { "family": "prompt",   "categorie": "prompt", "folder": "prompts", "tags": ["prompt", "skill"] },
+    "modele-ia":    { "family": "resource", "categorie": "note",   "folder": "tech",    "tags": ["ai"] },
+    "outil-service":{ "family": "resource", "categorie": "note",   "folder_if_ai": "tech", "tags_if_ai": ["ai"] },
+    "actualite":    { "family": "resource", "categorie": "note",   "folder_if_ai": "tech", "tags_if_ai": ["ai"] },
+    "astuce":       { "family": "resource", "categorie": "note" },
+    "inspiration-design": { "family": "resource", "categorie": "note" },
+    "reference":    { "family": "resource", "categorie": "note" }
+  }
+}
