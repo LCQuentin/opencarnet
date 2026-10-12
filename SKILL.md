@@ -39,8 +39,8 @@ the engine.
 
 ### 1. Ingest — build the item list
 
-Three input modes, combinable. Always normalize to an item list (`items.csv` or
-JSON) with at least a `url` or `id` key.
+Several input modes, combinable. Always normalize to an item list (`items.csv`
+or JSON) with at least a `url` or `id` key.
 
 **A. Meta export ("Download your information")** — gives the exhaustive list of
 saves (author, date, collection) but **not always the direct URL**.
@@ -66,6 +66,17 @@ with a driven browser and export the links, then switch to mode B.
 
 **D. A folder of captures** (screen-recording, screenshots) — last resort, no
 audio: skip transcription and analyze captures + caption.
+
+**E. X / Twitter export** — same idea as the Meta export, for your likes and
+bookmarks. X delivers a `.zip` whose `data/` folder holds small JS files
+(`like.js`, `bookmarks.js`…). The parser normalizes them to the same item list.
+
+```bash
+python3 scripts/parse_x_export.py "~/Downloads/twitter-archive.zip" --out items.csv
+```
+
+> For X, most posts are text: the tweet text is already in the export, so you can
+> often skip the download/transcribe step and analyze the text directly.
 
 ### 2. Enrich — download + transcribe + read the screen
 
@@ -166,7 +177,8 @@ The engine:
 | `reference/extraction-schema.md` | Extraction schema + `type_contenu` vocabulary + normalization prompt |
 | `reference/configuration.md` | Config schema (routing, themes, frontmatter, index) — neutral engine |
 | `config.example.json` | Neutral default config (no personal paths) |
-| `scripts/parse_meta_export.py` | Meta export → `items.csv` |
+| `scripts/parse_meta_export.py` | Meta (Instagram) export → `items.csv` |
+| `scripts/parse_x_export.py` | X / Twitter archive → `items.csv` |
 | `scripts/fetch_media.sh` | yt-dlp + ffmpeg: video, info.json, frame sheet |
 | `scripts/transcribe.py` | Whisper (faster-whisper or CLI) → `.txt` |
 | `scripts/build_bundle.py` | caption + transcript + metadata → `bundle.md` |

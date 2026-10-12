@@ -20,7 +20,7 @@ OpenCarnet brings those three parts together, makes a readable note, and files i
 
 Three steps, one command each:
 
-1. **Get the list** of everything you saved (from Instagram's official data export, or a simple list of links).
+1. **Get the list** of everything you saved (from the official Instagram or X data export, or a simple list of links).
 2. **Read each item**: OpenCarnet downloads the video, transcribes what is said, and reads the text on screen.
 3. **File it**: your AI assistant turns it into a short note (what it is, the useful details, a link to the original), then OpenCarnet files it in the right place, with no duplicates.
 
@@ -50,6 +50,22 @@ Important: the download link **expires after a few days**. Download the file and
 You will get a folder containing `saved_posts.json` (your saves) and, if you ticked it, `liked_posts.json` (your likes). That is the folder you hand to OpenCarnet.
 
 > If you only care about your saves, tick only **Saved**: the file that matters is `saved_posts.json`.
+
+### And your X / Twitter data
+
+Same idea for X (Twitter): download your data archive, and OpenCarnet pulls your likes and bookmarks from it.
+
+1. On x.com: the **More** menu, then **Settings and privacy** → **Your account** → **Download an archive of your data**.
+2. Confirm, then request the archive. X notifies you when it is ready (often within 24h).
+3. Download the `.zip`. It contains a `data/` folder with your likes (`like.js`) and, if you use them, your bookmarks.
+
+Then:
+
+```bash
+python3 scripts/parse_x_export.py "~/Downloads/twitter-archive.zip" --out items-x.csv
+```
+
+On X, most posts are text: the content is already in the export. So you can often skip the download and transcribe step and go straight to analysis.
 
 ## Getting started
 
@@ -107,7 +123,7 @@ The technical details (full commands, the note format, advanced settings) are he
 
 ## Roadmap
 
-- [ ] **X / Twitter**: the same as with Instagram (your bookmarked posts and likes), filed into your notebook.
+- [x] **X / Twitter**: your likes and bookmarks, same notes as Instagram.
 - [ ] Then other sources (TikTok, YouTube…), same idea.
 
 ## License

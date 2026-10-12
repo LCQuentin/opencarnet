@@ -20,7 +20,7 @@ OpenCarnet réunit ces trois morceaux, en fait une fiche lisible, et la range. O
 
 Trois étapes, une seule commande par étape :
 
-1. **Récupérer la liste** de vos enregistrements (depuis l'export officiel de vos données Instagram, ou une simple liste de liens).
+1. **Récupérer la liste** de vos enregistrements (depuis l'export officiel de vos données Instagram ou X, ou une simple liste de liens).
 2. **Lire chaque contenu** : OpenCarnet télécharge la vidéo, transcrit ce qui est dit, et lit le texte à l'écran.
 3. **Ranger** : votre assistant IA en tire une fiche courte (de quoi il s'agit, les détails utiles, le lien vers l'original), puis OpenCarnet la range à sa place, sans doublon.
 
@@ -50,6 +50,22 @@ Important : le lien de téléchargement **expire en quelques jours**. Téléchar
 Vous obtiendrez un dossier contenant `saved_posts.json` (vos enregistrements) et, si vous l'avez coché, `liked_posts.json` (vos « J'aime »). C'est ce dossier que vous donnerez à OpenCarnet.
 
 > Si vous ne voulez traiter que vos enregistrements, cochez uniquement **Enregistrements** : c'est le fichier `saved_posts.json` qui compte.
+
+### Et vos données X / Twitter
+
+Même principe pour X (Twitter) : vous téléchargez l'archive de vos données, et OpenCarnet en tire vos « J'aime » et vos signets.
+
+1. Sur x.com : menu **Plus**, puis **Paramètres et confidentialité** → **Votre compte** → **Télécharger une archive de vos données**.
+2. Confirmez, puis demandez l'archive. X vous prévient quand elle est prête (souvent sous 24 h).
+3. Téléchargez le fichier `.zip`. Il contient un dossier `data/` avec vos « J'aime » (`like.js`) et, si vous les utilisez, vos signets.
+
+Puis :
+
+```bash
+python3 scripts/parse_x_export.py "~/Downloads/twitter-archive.zip" --out items-x.csv
+```
+
+Sur X, la plupart des posts sont du texte : le contenu est déjà dans l'export. Vous pouvez donc souvent sauter le téléchargement et la transcription, et passer directement à l'analyse.
 
 ## Pour commencer
 
@@ -107,7 +123,7 @@ Les détails techniques (les commandes complètes, le schéma des fiches, les r�
 
 ## Feuille de route
 
-- [ ] **X / Twitter** : faire la même chose qu'avec Instagram (vos posts enregistrés et vos « J'aime »), pour les ranger dans votre carnet.
+- [x] **X / Twitter** : vos « J'aime » et vos signets, mêmes fiches que pour Instagram.
 - [ ] Ensuite, d'autres sources (TikTok, YouTube…) sur le même principe.
 
 ## Licence
