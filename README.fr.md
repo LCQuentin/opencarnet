@@ -6,6 +6,8 @@
 
 Vous enregistrez des reels. Ils s'entassent. Ce que vous vouliez retenir se perd : un outil, une astuce, une adresse, un livre, un prompt. Tout finit dans une grille de vignettes qu'on ne parcourt plus. OpenCarnet récupère cette matière et la range pour vous, dans le carnet que vous utilisez déjà (Obsidian, Notion, un simple dossier de notes).
 
+> **Note de l'auteur.** Je n'ai pas testé cet outil sous cette forme packagée : c'est un dérivé de ma façon de faire, mise en boîte et simplifiée. Il peut rester des aspérités. Preneur de vos retours pour l'améliorer.
+
 ## Pourquoi ça marche
 
 Un reel, ça n'est pas du texte. L'information utile est éparpillée à trois endroits :
@@ -31,6 +33,17 @@ Trois étapes, une seule commande par étape :
 - Trois outils gratuits, à installer en une commande chacun (indiqué plus bas).
 
 Pas besoin de savoir programmer. Vous copiez des commandes dans un terminal, c'est tout.
+
+## Vous n'y connaissez rien ? Passez par votre IA
+
+OpenCarnet contient un mode d'emploi écrit pour les assistants IA (`SKILL.md`). Vous pouvez donc simplement **donner le lien du dépôt à votre IA** (Claude, ChatGPT, Cursor…), et lui demander de vous expliquer ou de le faire pour vous.
+
+Exemples de messages à lui envoyer :
+- « Voici un projet GitHub : [lien]. Explique-moi ce qu'il fait et comment l'utiliser. »
+- « Installe et configure ce projet pour moi, étape par étape. »
+- « Voici mes exports Instagram et X. Mets en place ce projet et range mes enregistrements dans mon carnet Obsidian. »
+
+En clair : si vous savez copier un lien, vous savez utiliser OpenCarnet.
 
 ## Récupérer vos données Instagram
 

@@ -6,6 +6,8 @@
 
 You save reels. They pile up. What you meant to keep gets lost: a tool, a tip, a place, a book, a prompt. It all ends up in a grid of thumbnails you stop scrolling. OpenCarnet collects that material and files it for you, into the notebook you already use (Obsidian, Notion, a plain notes folder).
 
+> **A note from the author.** I have not tested this tool in its packaged form: it is derived from my own way of working, extracted and simplified. Rough edges may remain. Feedback welcome.
+
 ## Why it works
 
 A reel is not text. The useful information is spread across three places:
@@ -31,6 +33,17 @@ Three steps, one command each:
 - Three free tools, one install command each (shown below).
 
 No programming needed. You copy commands into a terminal, that's all.
+
+## Not technical? Let your AI do it
+
+OpenCarnet ships with instructions written for AI assistants (`SKILL.md`). So you can simply **hand the repo link to your AI** (Claude, ChatGPT, Cursor…) and ask it to explain, or to do it for you.
+
+Example prompts:
+- "Here is a GitHub project: [link]. Explain what it does and how to use it."
+- "Install and set up this project for me, step by step."
+- "Here are my Instagram and X exports. Set this project up and file my saves into my Obsidian notebook."
+
+Put plainly: if you can copy a link, you can use OpenCarnet.
 
 ## Export your Instagram data
 

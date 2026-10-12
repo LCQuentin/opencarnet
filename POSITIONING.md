@@ -30,6 +30,7 @@ Pas « une application de plus », mais **un outil que vous branchez sur votre c
 4. **Rien à donner.** Pas de compte, pas de connexion, pas d'abonnement. Tout reste chez vous.
 
 ## Les limites, en toute honnêteté
+- **Outil non testé sous sa forme packagée** : c'est un dérivé de ma façon de faire, mise en boîte et simplifiée. Des aspérités peuvent subsister ; les retours sont bienvenus.
 - Le marché est **encombré** et bouge vite. Les grosses applications ont l'avantage du nombre.
 - Un résumé, tout le monde sait le faire. Notre valeur doit rester **le rangement qui s'adapte à vous**, pas « un résumeur de plus ».
 - Les outils ouverts concurrents s'améliorent chaque semaine : mieux vaut une position claire et rapide.
