@@ -7,7 +7,7 @@
 ## Where the config lives
 Resolution order:
 1. `--config <path>`
-2. `$INSTAGRAM_SAVED_CONFIG`
+2. `$OPENCARNET_CONFIG` (legacy name `$INSTAGRAM_SAVED_CONFIG` still read)
 3. `~/.config/opencarnet/config.json` (personal use)
 4. `<skill>/config.example.json` (neutral default)
 
@@ -19,7 +19,7 @@ Keep your **personal** config out of the repo (it should not be published).
 {
   "root": "~/my-notes",                  // destination root
   "inbox_dir": "inbox",                   // where low-confidence items land
-  "index": { "scan_dir": "notes" },       // folder scanned for deduplication
+  "index": { "scan_dir": "notes" },       // folder scanned for deduplication (inbox_dir is always scanned too)
   "default_theme": "general",
   "ai_themes": ["tech"],
   "themes": { "<slug>": "<path relative to root>" },
@@ -61,10 +61,13 @@ Keep your **personal** config out of the repo (it should not be published).
 ## Methodology rules (storage-independent)
 - **"List" granularity**: recipe → one note; tool list → one note per tool;
   other lists (furniture, brands, cultural recs…) → one recap note per list.
-- **Dedup** by normalized name before creating (non-destructive merge).
+- **Dedup** by normalized name before creating: an existing note is never
+  overwritten, the new source URL is appended to it (non-destructive merge).
+  No dedup on URL alone — one source can legitimately yield several notes.
 - **Index** (if `moc` configured): appended in a dedicated section, deduped,
   without touching curated sections.
-- **Filename**: `<Readable name>.md`, no `/` or `:`.
+- **Filename**: `<Readable name>.md`; `/ \ : | # ^ [ ] * " < > ?` are replaced
+  by `-` (they break filenames, `[[wikilinks]]` or index tables).
 
 ## Provided examples
 - `config.example.json` — neutral (no personal paths).

@@ -54,12 +54,13 @@ def build_one(info_path: Path, work: Path, out: Path) -> Path:
     sheet = work / f"{iid}_sheet.jpg"
     sheet_line = f"![[{sheet.name}]]" if sheet.exists() else "_(pas de frames)_"
 
+    q = json.dumps  # chaîne JSON = scalaire YAML valide (protège « : », « # »…)
     md = f"""---
-id: {iid}
-url: {url}
-auteur: {author}
-handle: {handle}
-date_source: {date}
+id: {q(iid)}
+url: {q(url)}
+auteur: {q(author, ensure_ascii=False)}
+handle: {q(handle, ensure_ascii=False)}
+date_source: {q(date)}
 canal: {"reel" if "/reel" in url else "post"}
 duree_s: {duration if duration is not None else ""}
 ---
@@ -71,7 +72,7 @@ duree_s: {duration if duration is not None else ""}
 ## MÉTADONNÉES
 - url: {url}
 - auteur: {author}
-- handle: @{handle}
+- handle: {('@' + handle) if handle else "—"}
 - date: {date}
 - durée: {duration if duration is not None else "?"}s
 - hashtags: {hashtags or "—"}

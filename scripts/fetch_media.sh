@@ -9,7 +9,7 @@
 # Usage :
 #   bash fetch_media.sh "<url>" ./work [--cookies CHEMIN_COOKIES] [--frames N]
 #
-# Les cookies (export Netscape du navigateur connecté) sont nécessaire pour
+# Les cookies (export Netscape du navigateur connecté) sont nécessaires pour
 # beaucoup de reels. Sans eux, yt-dlp ne fonctionne que sur du contenu public.
 set -euo pipefail
 
@@ -34,18 +34,25 @@ done
 mkdir -p "$OUT"
 if [[ -n "$COOKIES" ]]; then COOKIE_ARGS=(--cookies "$COOKIES"); else COOKIE_ARGS=(); fi
 
+# L'ID est demandé à yt-dlp lui-même (et non déduit du dernier info.json modifié,
+# faux si le dossier est partagé et que l'item était déjà téléchargé).
+IDFILE=$(mktemp)
+trap 'rm -f "$IDFILE"' EXIT
+
 echo "[*] yt-dlp : $URL"
 yt-dlp \
   ${COOKIE_ARGS[@]+"${COOKIE_ARGS[@]}"} \
   --no-playlist \
+  --no-simulate --print-to-file id "$IDFILE" \
+  --ignore-no-formats-error \
   --write-info-json \
   --write-thumbnail \
   -f "bv*+ba/b" --merge-output-format mp4 \
   -o "$OUT/%(id)s.%(ext)s" \
   "$URL"
 
-ID=$(ls -t "$OUT"/*.info.json 2>/dev/null | head -1 | xargs -I{} basename {} .info.json || true)
-if [[ -z "$ID" ]]; then
+ID=$(tail -n 1 "$IDFILE")
+if [[ -z "$ID" || ! -f "$OUT/$ID.info.json" ]]; then
   echo "[!] échec : aucun info.json produit." >&2
   exit 1
 fi

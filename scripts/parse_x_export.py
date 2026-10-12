@@ -11,8 +11,10 @@ X archives the data as small JavaScript files in a `data/` folder, of the form:
     window.YTD.like.part0 = [ { "like": { "tweetId": "...", "fullText": "...",
         "expandedUrl": "https://twitter.com/i/web/status/..." } }, ... ]
 
-Recognised kinds: `like`/`likes` (your likes), `bookmark`/`bookmarks`
-(your bookmarks, if present), `tweet`/`tweets` (your own posts).
+Kept by default: `like`/`likes` (your likes) and `bookmark`/`bookmarks` (your
+bookmarks, if present). Your own posts (`tweet`/`tweets`) are opt-in via
+`--include-own-tweets`. Every other archive file (DMs, deleted tweets, account,
+lists…) is ignored — they are private and are not "saves".
 
 Output columns:
     id,url,auteur,handle,date_source,canal,legende,hashtags,collection
@@ -25,7 +27,6 @@ import hashlib
 import json
 import re
 import sys
-import tempfile
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -64,14 +65,12 @@ def unwrap_ytd(text: str):
         return kind, None
 
 
-def pick_kind(kind: str) -> str:
-    if kind.startswith("like"):
-        return "like"
-    if kind.startswith("bookmark"):
-        return "bookmark"
-    if kind.startswith("tweet"):
-        return "tweet"
-    return kind
+def pick_kind(kind: str) -> str | None:
+    """Normalise le type ; None = fichier à ignorer (pas une sauvegarde)."""
+    for k in ("like", "bookmark", "tweet"):
+        if kind in (k, k + "s"):
+            return k
+    return None
 
 
 def extract_items(kind: str, arr) -> list[dict]:
@@ -98,24 +97,32 @@ def extract_items(kind: str, arr) -> list[dict]:
             "canal": "tweet",
             "legende": text,
             "hashtags": hashtags,
-            "collection": pick_kind(kind),
+            "collection": kind,
         })
     return items
 
 
-def collect_js(path: Path):
+def iter_js(path: Path):
+    """Texte des .js de l'archive — lus dans le .zip sans tout extraire (médias)."""
     if path.is_file() and path.suffix.lower() == ".zip":
-        tmp = Path(tempfile.mkdtemp(prefix="x_export_"))
         with zipfile.ZipFile(path) as z:
-            z.extractall(tmp)
-        return tmp.rglob("*.js")
-    return path.rglob("*.js")
+            for info in z.infolist():
+                if info.filename.lower().endswith(".js"):
+                    yield z.read(info).decode("utf-8", errors="replace")
+    else:
+        for f in path.rglob("*.js"):
+            try:
+                yield f.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("export", help="dossier décompressé ou .zip de l'archive X")
     ap.add_argument("--out", default="items.csv", help="CSV de sortie")
+    ap.add_argument("--include-own-tweets", action="store_true",
+                    help="inclure aussi vos propres posts (tweets.js)")
     args = ap.parse_args()
 
     root = Path(args.export).expanduser()
@@ -124,15 +131,13 @@ def main() -> int:
         return 1
 
     all_items, files_seen = [], 0
-    for f in collect_js(root):
-        try:
-            head = f.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            continue
+    wanted = {"like", "bookmark"} | ({"tweet"} if args.include_own_tweets else set())
+    for head in iter_js(root):
         if "window.YTD." not in head:
             continue
         kind, arr = unwrap_ytd(head)
-        if arr is None:
+        kind = pick_kind(kind or "")
+        if arr is None or kind not in wanted:
             continue
         files_seen += 1
         all_items += extract_items(kind, arr)

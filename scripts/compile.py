@@ -61,7 +61,7 @@ def safe_name(s: str) -> str:
 
 
 def yaml_str(v: str) -> str:
-    if v == "" or re.search(r"[:#\[\]{}&*!|>'\"%@`]", v) or v != v.strip():
+    if v == "" or re.search(r"[:#\[\]{},&*!|>'\"%@`]", v) or v != v.strip():
         return '"' + v.replace("\\", "\\\\").replace('"', '\\"') + '"'
     return v
 
@@ -287,7 +287,7 @@ def main() -> int:
 
     cfg = load_config(args.config)
     root = Path(os.path.expanduser(str(cfg.get("root", "."))))
-    scan_dir = (cfg.get("index") or {}).get("scan_dir", "")
+    scan_dir = (cfg.get("index") or {}).get("scan_dir") or "."
     inbox_dir = cfg.get("inbox_dir", "inbox")
     moc_cfg = cfg.get("moc") or {}
 

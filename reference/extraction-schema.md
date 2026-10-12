@@ -129,4 +129,4 @@ Constraints:
 - [ ] No `themes` outside the taxonomy.
 - [ ] `casquettes`/`projets_lies` empty when unsure.
 - [ ] `confiance: basse` ⇒ destination the configured `inbox_dir`.
-- [ ] An item already present (URL/name) will be merged, not duplicated.
+- [ ] An item already present (same normalized `nom`) will be merged, not duplicated.

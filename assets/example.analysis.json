@@ -8,39 +8,54 @@
     {
       "type_contenu": "outil-service",
       "nom": "Exemple — outil de veille",
-      "resume": "Présentation d'un service de veille qui agrège des news techniques. Garde pour tester le routage vers Prompts & Skills IA.",
+      "resume": "Présentation d'un service de veille qui agrège des news techniques. Sert à tester le routage « outil + thème IA » (dossier tech).",
+      "exploitation": [
+        "Tester comme source de veille quotidienne.",
+        "Comparer avec un flux RSS maison."
+      ],
       "substance_technique": {
         "modele_cible": "",
-        "stack": ["web"],
+        "stack": [
+          "web"
+        ],
         "methode": "Agrégation RSS + synthèse LLM.",
         "etapes": [],
         "placeholders": [],
         "details": "Freemium, API disponible."
       },
       "citation_cle": "L'outil résume 200 sources en un digest quotidien.",
-      "liens": ["https://exemple.com"],
+      "liens": [
+        "https://exemple.com"
+      ],
       "illustrations": [],
-      "themes": ["tech-ia"],
+      "themes": [
+        "tech"
+      ],
       "casquettes": [],
       "projets_lies": [],
-      "categorie_vault": "Veille",
+      "categorie_vault": "note",
       "tags_extra": [],
       "confiance": "moyenne"
     },
     {
       "type_contenu": "reference",
       "nom": "Exemple — livre cité",
-      "resume": "Un livre sur la productivité cité en fin de reel. Teste le routage vers la Bibliothèque par thème.",
+      "resume": "Un livre sur la productivité cité en fin de reel. Sert à tester le routage par thème (dossier general).",
+      "exploitation": [
+        "Ajouter à la liste de lecture."
+      ],
       "substance_technique": {
         "details": "Auteur : X. ISBN si connu."
       },
       "citation_cle": "",
       "liens": [],
       "illustrations": [],
-      "themes": ["pkm-productivite"],
+      "themes": [
+        "general"
+      ],
       "casquettes": [],
       "projets_lies": [],
-      "categorie_vault": "Livre",
+      "categorie_vault": "note",
       "tags_extra": [],
       "confiance": "haute"
     }

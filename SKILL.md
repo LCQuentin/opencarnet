@@ -1,6 +1,6 @@
 ---
 name: opencarnet
-description: Turn saved Instagram reels/posts into structured, classified knowledge notes (destination configurable — Obsidian, Markdown, Notion/CSV). Extracts the substance (tool/service, skill, prompt, AI model, tip, reference) with technical details, routes each item via a config file, dedupes and updates the index. Use on "saved reels", "saved posts", "my Instagram saves", "Instagram backlog", a Meta export, a list of IG links or a folder of captures. FR — Transforme vos reels/posts Instagram enregistrés en fiches de connaissance classées (destination configurable). À utiliser sur "reels enregistrés", "posts sauvegardés", "mes sauvegardes Instagram", "traiter ma base Instagram", "backlog Instagram", un export Meta, une liste de liens IG ou un dossier de captures.
+description: Turn saved Instagram reels/posts (and X / Twitter likes & bookmarks) into structured, classified knowledge notes (destination configurable — Obsidian, Markdown, Notion/CSV). Extracts the substance (tool/service, skill, prompt, AI model, tip, reference) with technical details, routes each item via a config file, dedupes and updates the index. Use on "saved reels", "saved posts", "my Instagram saves", "Instagram backlog", a Meta export, an X / Twitter archive, "my likes", "my bookmarks", a list of IG links or a folder of captures. FR — Transforme vos reels/posts Instagram enregistrés en fiches de connaissance classées (destination configurable). À utiliser sur "reels enregistrés", "posts sauvegardés", "mes sauvegardes Instagram", "traiter ma base Instagram", "backlog Instagram", un export Meta, une archive X / Twitter, "mes J'aime", "mes signets", une liste de liens IG ou un dossier de captures.
 ---
 
 # OpenCarnet
@@ -50,9 +50,9 @@ python3 scripts/parse_meta_export.py "~/Downloads/instagram-xxx/" --out items.cs
 ```
 
 > Known limit: depending on the export version, the *Saved* section holds the
-> author and date, not always the permalink. The script flags those items
-> `url-missing` so they surface as "to complete" (step 5) instead of being
-> analyzed blind. To complete them, see mode C.
+> author and date, not always the permalink. Those items keep an empty `url`
+> column and the script reports them as "to complete" (step 5) instead of
+> letting them be analyzed blind. To complete them, see mode C.
 
 **B. A list of links** (pasted by the user, or scraped by another tool) — the
 most reliable mode. One link per line.
@@ -75,6 +75,9 @@ bookmarks. X delivers a `.zip` whose `data/` folder holds small JS files
 python3 scripts/parse_x_export.py "~/Downloads/twitter-archive.zip" --out items.csv
 ```
 
+> Only likes and bookmarks are kept; other archive files (DMs, deleted tweets,
+> account…) are ignored. Add `--include-own-tweets` to also import your own posts.
+>
 > For X, most posts are text: the tweet text is already in the export, so you can
 > often skip the download/transcribe step and analyze the text directly.
 
@@ -145,7 +148,9 @@ python3 scripts/compile.py --analysis ./analyses/<id>.json --config ./config.jso
 ```
 
 The engine:
-- **dedupes** (normalized name already present → non-destructive merge) ;
+- **dedupes** by normalized name across `index.scan_dir` and `inbox_dir`: an
+  existing note is never overwritten — the new source URL is appended to it
+  (non-destructive merge) ;
 - writes the note from the config's `frontmatter` and `route` ;
 - adds the **index row** if a `moc` is configured ;
 - sends `low-confidence` / URL-less items to `inbox_dir`.

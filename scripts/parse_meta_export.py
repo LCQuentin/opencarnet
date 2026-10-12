@@ -2,7 +2,7 @@
 """Parse un export de données Instagram (Meta) et extrait la liste des posts
 sauvegardés ("Saved") vers un CSV normalisé + un sidecar JSON (légendes).
 
-Gère deux formats d'export :
+Gère trois formats d'export :
   - moderne : liste d'items `{timestamp, fbid, label_values:[{label,value} | {title,dict}]}`
   - legacy  : `{saved_saved_media:[{title, string_map_data:{...}}]}`
   - HTML    : extraction des liens instagram
@@ -14,6 +14,9 @@ Usage :
 Sortie :
   items.csv   : id,url,auteur,handle,date_source,canal,legende,hashtags,collection
   items.json  : même items avec la légende complète (pour build_bundle)
+
+Les items sans permalien gardent une colonne `url` vide : ils sont comptés
+« à compléter » et compile.py les enverra dans l'inbox.
 """
 from __future__ import annotations
 
@@ -139,7 +142,9 @@ def parse_legacy(data) -> list[dict]:
         blob = json.dumps(node, ensure_ascii=False)
         url = first_ig_url(blob) or ""
         smd = node.get("string_map_data") or {}
-        author, saved_on = "", ""
+        # export actuel : `title` = nom de profil de l'auteur
+        author = str(node.get("title") or "") if isinstance(node.get("title"), str) else ""
+        saved_on = ""
         if isinstance(smd, dict):
             for k, v in smd.items():
                 if isinstance(v, dict):
@@ -148,15 +153,16 @@ def parse_legacy(data) -> list[dict]:
                     if not url and v.get("href"):
                         url = first_ig_url(v["href"]) or ""
                 kl = k.lower()
-                if "owner" in kl or "username" in kl:
+                if ("owner" in kl or "username" in kl) and not author:
                     author = str(v.get("value", v.get("title", "")) if isinstance(v, dict) else v)
         if not url and not author:
             continue
         items.append({
-            "id": hashlib.sha1((url or author).encode()).hexdigest()[:12],
-            "url": url, "auteur": author, "handle": "",
+            # url, sinon auteur + date : évite de fusionner les saves sans URL d'un même auteur
+            "id": hashlib.sha1((url or f"{author}|{saved_on}").encode()).hexdigest()[:12],
+            "url": url, "auteur": author, "handle": author,
             "date_source": iso_from_ts(saved_on), "canal": "reel" if "/reel" in url else "post",
-            "legende": "", "hashtags": "", "collection": path.split(".", 1)[0],
+            "legende": "", "hashtags": "", "collection": re.sub(r"\[.*", "", path.split(".")[1]) if "." in path else "saved",
         })
     return items
 
@@ -188,15 +194,25 @@ def extract_from_json(data) -> list[dict]:
     return parse_legacy(data)
 
 
-def collect_files(root: Path):
-    if root.is_file() and root.suffix.lower() == ".zip":
-        import tempfile
+def is_target(name: str) -> bool:
+    n = Path(name).name.lower()
+    return ("saved" in n or "sauveg" in n) and Path(n).suffix in (".json", ".html", ".htm")
 
-        tmp = Path(tempfile.mkdtemp(prefix="ig_export_"))
+
+def iter_sources(root: Path):
+    """(nom, texte) des fichiers « saved » — lus directement dans le .zip, sans
+    extraire l'export complet (souvent plusieurs Go de médias)."""
+    if root.is_file() and root.suffix.lower() == ".json":
+        yield root.name, root.read_text(encoding="utf-8", errors="replace")
+    elif root.is_file() and root.suffix.lower() == ".zip":
         with zipfile.ZipFile(root) as z:
-            z.extractall(tmp)
-        return tmp.rglob("*")
-    return root.rglob("*")
+            for info in z.infolist():
+                if not info.is_dir() and is_target(info.filename):
+                    yield info.filename, z.read(info).decode("utf-8", errors="replace")
+    else:
+        for f in root.rglob("*"):
+            if f.is_file() and is_target(f.name):
+                yield str(f), f.read_text(encoding="utf-8", errors="replace")
 
 
 def main() -> int:
@@ -210,22 +226,16 @@ def main() -> int:
         print(f"[!] introuvable : {root}", file=sys.stderr)
         return 1
 
-    targets = [root] if root.is_file() and root.suffix.lower() == ".json" else [
-        f for f in collect_files(root) if f.is_file() and (
-            ("saved" in f.name.lower() or "sauveg" in f.name.lower())
-            and f.suffix.lower() in (".json", ".html", ".htm")
-        )
-    ]
     all_items, files_seen = [], 0
-    for f in targets:
+    for name, text in iter_sources(root):
         files_seen += 1
         try:
-            if f.suffix.lower() == ".json":
-                all_items += extract_from_json(json.loads(f.read_text(encoding="utf-8", errors="replace")))
+            if name.lower().endswith(".json"):
+                all_items += extract_from_json(json.loads(text))
             else:
-                all_items += parse_html(f.read_text(encoding="utf-8", errors="replace"))
+                all_items += parse_html(text)
         except Exception as exc:  # noqa: BLE001
-            print(f"[!] ignore {f} : {exc}", file=sys.stderr)
+            print(f"[!] ignore {name} : {exc}", file=sys.stderr)
 
     # dédup (url, sinon id)
     seen, rows = set(), []
@@ -248,7 +258,7 @@ def main() -> int:
     with_cap = sum(1 for r in rows if r["legende"])
     print(
         f"[ok] {len(rows)} items depuis {files_seen} fichier(s) -> {out}\n"
-        f"     {with_url} avec URL, {with_cap} avec légende.\n"
+        f"     {with_url} avec URL, {len(rows) - with_url} sans URL (à compléter), {with_cap} avec légende.\n"
         f"     sidecar : {out.with_suffix('.json')}"
     )
     return 0
