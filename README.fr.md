@@ -6,7 +6,7 @@
 
 Vous enregistrez des reels. Ils s'entassent. Ce que vous vouliez retenir se perd : un outil, une astuce, une adresse, un livre, un prompt. Tout finit dans une grille de vignettes qu'on ne parcourt plus. OpenCarnet récupère cette matière et la range pour vous, dans le carnet que vous utilisez déjà (Obsidian, Notion, un simple dossier de notes).
 
-> **Note de l'auteur.** Je n'ai pas testé cet outil sous cette forme packagée : c'est un dérivé de ma façon de faire, mise en boîte et simplifiée. Il peut rester des aspérités. Preneur de vos retours pour l'améliorer.
+> **Note de l'auteur.** Je n'ai pas testé cet outil sous cette forme packagée : c'est un dérivé de ma façon de faire, mise en boîte et simplifiée. Ce n'est pas parfait, et c'est améliorable. Des aspérités peuvent subsister. Je suis ouvert à toutes vos suggestions d'amélioration.
 
 ## Pourquoi ça marche
 
@@ -80,6 +80,28 @@ python3 scripts/parse_x_export.py "~/Downloads/twitter-archive.zip" --out items-
 
 Sur X, la plupart des posts sont du texte : le contenu est déjà dans l'export. Vous pouvez donc souvent sauter le téléchargement et la transcription, et passer directement à l'analyse.
 
+### TikTok, LinkedIn, YouTube (support en cours)
+
+Ces trois sources arrivent (voir la feuille de route). Vous pouvez déjà préparer vos exports dès maintenant.
+
+**TikTok**
+1. Profil → menu ☰ → **Paramètres et confidentialité**.
+2. **Compte** → **Télécharger vos données**.
+3. Choisissez « All data » (ou au minimum **Activity**), format **JSON**.
+4. Demandez, puis téléchargez sous ~4 jours. Vous obtiendrez vos favoris et vos « J'aime » (date + lien).
+
+**LinkedIn** (sur ordinateur uniquement)
+1. Icône **Moi** → **Paramètres et confidentialité**.
+2. **Confidentialité des données** → **Télécharger vos données**.
+3. Cochez **Saved Items** → **Demander l'archive**.
+4. Téléchargez le fichier (lien valable 72 h). Vous obtiendrez `Saved Items.csv` (lien + date).
+
+**YouTube**
+1. Allez sur `takeout.google.com`.
+2. Décochez tout, puis cochez **YouTube and YouTube Music**.
+3. Cochez au minimum **playlists** (contient vos vidéos aimées) et **history**.
+4. Créez l'export. Google vous envoie un lien par e-mail. Vous obtiendrez surtout des identifiants de vidéos (et des dates), pas les vidéos.
+
 ## Pour commencer
 
 ```bash
@@ -138,6 +160,7 @@ Les détails techniques (les commandes complètes, le schéma des fiches, les r�
 
 - [x] **X / Twitter** : vos « J'aime » et vos signets, mêmes fiches que pour Instagram.
 - [ ] **TikTok** : vos vidéos favorites.
+- [ ] **LinkedIn** : vos éléments enregistrés.
 - [ ] **YouTube** : vos « J'aime » et vos playlists.
 
 ## Licence

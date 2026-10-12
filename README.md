@@ -6,7 +6,7 @@
 
 You save reels. They pile up. What you meant to keep gets lost: a tool, a tip, a place, a book, a prompt. It all ends up in a grid of thumbnails you stop scrolling. OpenCarnet collects that material and files it for you, into the notebook you already use (Obsidian, Notion, a plain notes folder).
 
-> **A note from the author.** I have not tested this tool in its packaged form: it is derived from my own way of working, extracted and simplified. Rough edges may remain. Feedback welcome.
+> **A note from the author.** I have not tested this tool in its packaged form: it is derived from my own way of working, extracted and simplified. It is not perfect, and it can be improved. Rough edges may remain. I am open to any improvement suggestion.
 
 ## Why it works
 
@@ -80,6 +80,28 @@ python3 scripts/parse_x_export.py "~/Downloads/twitter-archive.zip" --out items-
 
 On X, most posts are text: the content is already in the export. So you can often skip the download and transcribe step and go straight to analysis.
 
+### TikTok, LinkedIn, YouTube (coming soon)
+
+These three sources are on the way (see the roadmap). You can already prepare your exports.
+
+**TikTok**
+1. Profile → menu ☰ → **Settings and privacy**.
+2. **Account** → **Download your data**.
+3. Choose "All data" (or at least **Activity**), format **JSON**.
+4. Request it, then download within ~4 days. You get your favorites and likes (date + link).
+
+**LinkedIn** (desktop only)
+1. **Me** icon → **Settings & Privacy**.
+2. **Data Privacy** → **Download your data**.
+3. Tick **Saved Items** → **Request archive**.
+4. Download the file (link valid 72h). You get `Saved Items.csv` (link + date).
+
+**YouTube**
+1. Go to `takeout.google.com`.
+2. Deselect everything, then tick **YouTube and YouTube Music**.
+3. Tick at least **playlists** (holds your liked videos) and **history**.
+4. Create the export. Google emails you a link. You get mostly video IDs (and dates), not the videos.
+
 ## Getting started
 
 ```bash
@@ -138,6 +160,7 @@ The technical details (full commands, the note format, advanced settings) are he
 
 - [x] **X / Twitter**: your likes and bookmarks, same notes as Instagram.
 - [ ] **TikTok**: your favorites.
+- [ ] **LinkedIn**: your saved items.
 - [ ] **YouTube**: your likes and playlists.
 
 ## License

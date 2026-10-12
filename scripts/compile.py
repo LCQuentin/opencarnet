@@ -11,7 +11,7 @@ Usage :
 
 Résolution de la config (par ordre) :
     1. --config
-    2. $INSTAGRAM_SAVED_CONFIG
+    2. $OPENCARNET_CONFIG (ou l'ancien $INSTAGRAM_SAVED_CONFIG)
     3. ~/.config/opencarnet/config.json
     4. <skill>/config.example.json
 
@@ -30,7 +30,8 @@ from pathlib import Path
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG_CANDIDATES = [
-    os.environ.get("INSTAGRAM_SAVED_CONFIG", ""),
+    os.environ.get("OPENCARNET_CONFIG", ""),
+    os.environ.get("INSTAGRAM_SAVED_CONFIG", ""),  # ancien nom, conservé
     str(Path.home() / ".config" / "opencarnet" / "config.json"),
     str(SKILL_DIR / "config.example.json"),
 ]
@@ -44,7 +45,7 @@ def load_config(path: str | None) -> dict:
             return cfg
     raise SystemExit(
         "[!] aucune config trouvée — passer --config, ou définir "
-        "$INSTAGRAM_SAVED_CONFIG, ou créer ~/.config/opencarnet/config.json"
+        "$OPENCARNET_CONFIG, ou créer ~/.config/opencarnet/config.json"
     )
 
 
@@ -54,19 +55,32 @@ def norm(s: str) -> str:
 
 
 def safe_name(s: str) -> str:
-    s = re.sub(r"[/\\:]", "-", s).strip()
+    # caractères interdits dans un nom de fichier ou cassant un [[wikilink]] / tableau
+    s = re.sub(r'[/\\:|#^\[\]*"<>?]', "-", s).strip()
     return re.sub(r"\s+", " ", s) or "Sans titre"
 
 
 def yaml_str(v: str) -> str:
     if v == "" or re.search(r"[:#\[\]{}&*!|>'\"%@`]", v) or v != v.strip():
-        return '"' + v.replace('"', '\\"') + '"'
+        return '"' + v.replace("\\", "\\\\").replace('"', '\\"') + '"'
     return v
 
 
 def yaml_list(items) -> str:
-    items = [i for i in (items or []) if i]
-    return "[]" if not items else "[" + ", ".join(str(i) for i in items) + "]"
+    items = [str(i) for i in (items or []) if i]
+    return "[]" if not items else "[" + ", ".join(yaml_str(i) for i in items) + "]"
+
+
+def md_bullets(v) -> str:
+    """Liste (ou chaîne) -> puces Markdown."""
+    items = [str(x) for x in v if x] if isinstance(v, list) else ([str(v)] if v else [])
+    return "\n".join(f"- {x}" for x in items) or "- "
+
+
+def fence(code: str) -> str:
+    """Clôture de bloc de code plus longue que toute suite de ` dans le contenu."""
+    longest = max((len(m) for m in re.findall(r"`+", code)), default=0)
+    return "`" * max(3, longest + 1)
 
 
 def dedup(seq):
@@ -134,6 +148,7 @@ def body_prompt(ext: dict, src: str, cfg: dict) -> str:
     vars_ = st.get("placeholders") or []
     vars_md = "\n".join(f"- `{v}` : " for v in vars_) or "- _aucune_"
     liens_md = "\n".join(f"- {u}" for u in (ext.get("liens") or [])) or "- "
+    f = fence(code)
     return f"""# 🤖 {ext.get('nom','')}
 
 ## 🎯 Objectif
@@ -141,9 +156,9 @@ def body_prompt(ext: dict, src: str, cfg: dict) -> str:
 
 ## 💻 Code (prêt à copier-coller)
 
-```markdown
+{f}markdown
 {code}
-```
+{f}
 
 ## 🧩 Variables à renseigner
 {vars_md}
@@ -155,7 +170,7 @@ def body_prompt(ext: dict, src: str, cfg: dict) -> str:
 
 | Date | Changement | Résultat |
 |---|---|---|
-| {date.today().isoformat()} | Import Instagram | À tester |
+| {date.today().isoformat()} | Import OpenCarnet | À tester |
 
 ## 🔗 Ressources & liens liés
 - Source : {src}
@@ -171,7 +186,7 @@ def body_resource(ext: dict, src: str, cfg: dict) -> str:
     return f"""# 📚 {ext.get('nom','')}
 
 ## 🔎 Résumé
-- {ext.get('resume','')}
+{md_bullets(ext.get('resume'))}
 
 ## 💡 Idées clés / Citations
 {('- « ' + citation + ' »') if citation else '- '}
@@ -180,7 +195,7 @@ def body_resource(ext: dict, src: str, cfg: dict) -> str:
 {img_md}
 
 ## 🤖 Exploitation possible
-- {ext.get('exploitation','')}
+{md_bullets(ext.get('exploitation'))}
 
 ## 🔗 Lien vers la source
 - {src}
@@ -191,12 +206,12 @@ def body_resource(ext: dict, src: str, cfg: dict) -> str:
 def build_frontmatter(ext: dict, route: dict, src: str, cfg: dict, today: str) -> str:
     f = cfg.get("frontmatter", {})
     tags = dedup(route["tags"] + (ext.get("tags_extra") or []))
-    lines = ["aliases: []", f"type: {f.get('type','ressource')}",
-             f"categorie: {route['categorie']}", "tags:"]
-    lines += [f"  - {t}" for t in tags]
+    lines = ["aliases: []", f"type: {yaml_str(str(f.get('type','ressource')))}",
+             f"categorie: {yaml_str(str(route['categorie']))}", "tags:"]
+    lines += [f"  - {yaml_str(str(t))}" for t in tags]
     lines += [
         f"themes: {yaml_list(ext.get('themes'))}",
-        f"statut: {f.get('default_statut','À consulter')}",
+        f"statut: {yaml_str(str(f.get('default_statut','À consulter')))}",
         f"casquettes: {yaml_list(ext.get('casquettes'))}",
         f"projets_lies: {yaml_list(ext.get('projets_lies'))}",
         f"source: {yaml_str(src)}",
@@ -211,22 +226,25 @@ def build_frontmatter(ext: dict, route: dict, src: str, cfg: dict, today: str) -
 
 # ---------- dédoublonnage ----------
 
-def scan_index(root: Path, scan_dir: str) -> dict:
-    by_name, by_url = {}, {}
-    base = root / scan_dir
-    if not base.is_dir():
-        return by_name
-    for p in base.rglob("*.md"):
-        by_name.setdefault(norm(p.stem), p)
-        try:
-            head = p.read_text(encoding="utf-8", errors="replace")[:1500]
-        except OSError:
-            continue
-        for m in re.finditer(r"^\s*(?:source|url)\s*:\s*(.+)$", head, re.M):
-            u = m.group(1).strip().strip('"').strip("'")
-            if u.startswith("http"):
-                by_url.setdefault(u, p)
+def scan_index(root: Path, dirs: list[str]) -> dict:
+    """Nom normalisé -> fiche existante. Pas de dédoublonnage par URL seule :
+    plusieurs substances d'une même source donnent légitimement plusieurs fiches."""
+    by_name = {}
+    for d in dirs:
+        base = root / d
+        if base.is_dir():
+            for p in base.rglob("*.md"):
+                by_name.setdefault(norm(p.stem), p)
     return by_name
+
+
+def merge_source(p: Path, src: str) -> str:
+    """Fusion non destructive : ajoute la source en fin de fiche si elle est absente."""
+    text = p.read_text(encoding="utf-8")
+    if not src or src in text:
+        return "source déjà présente"
+    p.write_text(text.rstrip() + f"\n- Source (doublon) : {src}\n", encoding="utf-8")
+    return "source ajoutée"
 
 
 # ---------- index / MOC ----------
@@ -240,8 +258,16 @@ def update_moc(root: Path, moc_rel: str, section: str, name: str, tc: str, today
         if f"[[{name}]]" in text:
             return "déjà indexé"
         if section in text:
-            i = text.index(header) + len(header)
-            text = text[:i] + row + "\n" + text[i:]
+            # insère sous la ligne `|---` du premier tableau de la section, sinon crée le tableau
+            start = text.index(section) + len(section)
+            nxt = re.search(r"^#{1,6} ", text[start:], re.M)
+            end = start + nxt.start() if nxt else len(text)
+            sep = re.search(r"^\|\s*-{3}.*$\n?", text[start:end], re.M)
+            if sep:
+                i = start + sep.end()
+                text = text[:i] + ("" if text[i - 1:i] == "\n" else "\n") + row + "\n" + text[i:]
+            else:
+                text = text[:start] + "\n\n| Note | Type | Date |\n|---|---|---|\n" + row + "\n" + text[start:].lstrip("\n")
         else:
             text = text.rstrip() + "\n\n" + header + row + "\n"
     else:
@@ -255,7 +281,6 @@ def update_moc(root: Path, moc_rel: str, section: str, name: str, tc: str, today
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--analysis", required=True)
-    ap.add_argument("--bundle", default=None)
     ap.add_argument("--config", default=None)
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
@@ -278,7 +303,7 @@ def main() -> int:
 
     src = data.get("source_url", "")
     today = date.today().isoformat()
-    by_name = scan_index(root, scan_dir)
+    by_name = scan_index(root, dedup([scan_dir, inbox_dir]))
 
     created = updated = skipped = 0
     for ext in exts:
@@ -290,14 +315,14 @@ def main() -> int:
 
         name = safe_name(ext.get("nom") or "Sans titre")
         low_conf = (ext.get("confiance") == "basse") or (not src)
-        existing = by_name.get(norm(name))
-        if existing:
-            print(f"[~] doublon -> fusion : {existing}")
-            updated += 1
-            continue
-
         folder = root / (inbox_dir if low_conf else route["folder"])
         dest = folder / f"{name}.md"
+        existing = by_name.get(norm(name)) or (dest if dest.exists() else None)
+        if existing:
+            status = "dry" if args.dry_run else merge_source(existing, src)
+            print(f"[~] doublon -> fusion ({status}) : {existing}")
+            updated += 1
+            continue
         content = build_frontmatter(ext, route, src, cfg, today) + "\n" + \
             (body_prompt if route["family"] == "prompt" else body_resource)(ext, src, cfg)
 
@@ -307,6 +332,7 @@ def main() -> int:
 
         folder.mkdir(parents=True, exist_ok=True)
         dest.write_text(content, encoding="utf-8")
+        by_name[norm(name)] = dest  # protège des homonymes dans la même analyse
         status = "créé"
         if not low_conf and moc_cfg:
             moc_rel = moc_cfg.get("prompt" if route["family"] == "prompt" else "resource")
