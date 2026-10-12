@@ -124,7 +124,8 @@ The technical details (full commands, the note format, advanced settings) are he
 ## Roadmap
 
 - [x] **X / Twitter**: your likes and bookmarks, same notes as Instagram.
-- [ ] Then other sources (TikTok, YouTube…), same idea.
+- [ ] **TikTok**: your favorites.
+- [ ] **YouTube**: your likes and playlists.
 
 ## License
 

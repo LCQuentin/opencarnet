@@ -124,7 +124,8 @@ Les détails techniques (les commandes complètes, le schéma des fiches, les r�
 ## Feuille de route
 
 - [x] **X / Twitter** : vos « J'aime » et vos signets, mêmes fiches que pour Instagram.
-- [ ] Ensuite, d'autres sources (TikTok, YouTube…) sur le même principe.
+- [ ] **TikTok** : vos vidéos favorites.
+- [ ] **YouTube** : vos « J'aime » et vos playlists.
 
 ## Licence
 
