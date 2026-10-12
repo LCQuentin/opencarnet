@@ -61,9 +61,6 @@ One `analyses/<id>.json` per bundle:
       "liens": ["https://www.filatov.design"],
       "illustrations": ["_images/02 Apple-studies.jpg"],
       "themes": ["tech-ia"],
-      "casquettes": [],
-      "projets_lies": [],
-      "categorie_vault": "Veille",
       "tags_extra": ["🤖/prompt", "🤖/ia"],
       "confiance": "haute"
     }
@@ -84,49 +81,27 @@ One `analyses/<id>.json` per bundle:
 | `liens` | no | exact URLs cited |
 | `illustrations` | no | paths of visuals kept in `_images/` |
 | `themes` | yes | vocabulary of your taxonomy |
-| `casquettes` / `projets_lies` | yes (may be `[]`) | don't invent: leave empty if unsure |
-| `categorie_vault` | yes | `Prompt` · `Veille` · `Article` · `Livre` · `Fiche` |
+| *custom fields* | per config | declared in `custom_fields` (see `configuration.md`); don't invent: leave empty if unsure |
 | `dossier_cible` | no | path **forcing** the destination (takes precedence over auto-routing) |
 | `tags_extra` | no | extra tags added to the base tags |
 | `confiance` | yes | `haute` · `moyenne` · `basse` — `basse` ⇒ inbox |
 
 ## Normalization prompt
 
-Apply per bundle (with the frame sheet in view when available):
+The prompt is **generated from your config** — `type_contenu` vocabulary (your
+routes), themes, and your custom fields:
 
+```bash
+python3 scripts/compile.py --print-prompt [--config config.json]
 ```
-You receive a SAVED INSTAGRAM ITEM: its caption, its audio transcript and the
-visual reading of its key images. Your task: extract the USABLE SUBSTANCE, not
-an entertainment summary.
 
-1. Split into independent substances (0..n). One item may contain a tool AND a
-   tip AND a reference → one entry per substance.
-2. For each substance, pick `type_contenu` from the provided vocabulary.
-3. Fill the schema fields. Invent NOTHING: if a technical detail isn't legible,
-   leave the field empty and lower `confiance`.
-4. `nom` = explicit title you could find again in 6 months.
-5. `themes`: only the provided taxonomy vocabulary.
-6. If no usable substance: {"extraction": []}.
-7. Fill `exploitation`: propose 1–3 concrete uses (target role/project). It is an
-   expected value-add — never leave it empty.
-
-Constraints:
-- Do not copy a paid asset wholesale: extract + link.
-- Distinguish the model CITED from the model USED to produce the content.
-- The transcript can be noisy: don't infer a tool name from a mis-transcribed
-  word — if in doubt, cite the link and mark `confiance: basse`.
-
-[CAPTION]     : ...
-[TRANSCRIPT]  : ...
-[SCREEN READ] : ...
-[METADATA]    : author=..., date=..., url=...
-```
+Apply it per bundle, with the frame sheet in view when available.
 
 ## Quality check (before filing)
 
 - [ ] Every `type_contenu` is in the vocabulary.
 - [ ] Every `nom` is unique and explicit.
 - [ ] No `themes` outside the taxonomy.
-- [ ] `casquettes`/`projets_lies` empty when unsure.
+- [ ] Custom fields empty when unsure.
 - [ ] `confiance: basse` ⇒ destination the configured `inbox_dir`.
 - [ ] An item already present (same normalized `nom`) will be merged, not duplicated.

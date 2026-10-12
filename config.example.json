@@ -2,9 +2,13 @@
   "_comment": "Exemple de config NEUTRE (aucun chemin perso). Copier vers ~/.config/opencarnet/config.json et adapter.",
   "root": "./out",
   "inbox_dir": "inbox",
-  "index": { "scan_dir": "." },
+  "index": {
+    "scan_dir": "."
+  },
   "default_theme": "general",
-  "ai_themes": ["tech"],
+  "ai_themes": [
+    "tech"
+  ],
   "themes": {
     "general": "general",
     "tech": "tech",
@@ -13,21 +17,78 @@
     "lifestyle": "lifestyle"
   },
   "frontmatter": {
-    "type": "note",
-    "default_categorie": "note",
-    "default_statut": "to-review",
-    "base_tags": ["imported"],
-    "date_fields": ["created", "updated"]
+    "_comment": "Order = property order in the note. Placeholders: {any analysis field}, {source_url}, {today}, {tags}, {categorie}. \"fields\": {} => no frontmatter.",
+    "fields": {
+      "tags": {
+        "value": "{tags}",
+        "style": "block"
+      },
+      "category": "{categorie}",
+      "themes": "{themes}",
+      "status": "to-review",
+      "source": "{source_url}",
+      "created": "{today}"
+    },
+    "by_family": {},
+    "base_tags": [
+      "imported"
+    ],
+    "default_categorie": "note"
   },
-  "prompt_extra_fields": {},
+  "custom_fields": {},
   "routes": {
-    "prompt":       { "family": "prompt",   "categorie": "prompt", "folder": "prompts", "tags": ["prompt"] },
-    "skill":        { "family": "prompt",   "categorie": "prompt", "folder": "prompts", "tags": ["prompt", "skill"] },
-    "modele-ia":    { "family": "resource", "categorie": "note",   "folder": "tech",    "tags": ["ai"] },
-    "outil-service":{ "family": "resource", "categorie": "note",   "folder_if_ai": "tech", "tags_if_ai": ["ai"] },
-    "actualite":    { "family": "resource", "categorie": "note",   "folder_if_ai": "tech", "tags_if_ai": ["ai"] },
-    "astuce":       { "family": "resource", "categorie": "note" },
-    "inspiration-design": { "family": "resource", "categorie": "note" },
-    "reference":    { "family": "resource", "categorie": "note" }
+    "prompt": {
+      "family": "prompt",
+      "categorie": "prompt",
+      "folder": "prompts",
+      "tags": [
+        "prompt"
+      ]
+    },
+    "skill": {
+      "family": "prompt",
+      "categorie": "prompt",
+      "folder": "prompts",
+      "tags": [
+        "prompt",
+        "skill"
+      ]
+    },
+    "modele-ia": {
+      "family": "resource",
+      "categorie": "note",
+      "folder": "tech",
+      "tags": [
+        "ai"
+      ]
+    },
+    "outil-service": {
+      "family": "resource",
+      "categorie": "note",
+      "folder_if_ai": "tech",
+      "tags_if_ai": [
+        "ai"
+      ]
+    },
+    "actualite": {
+      "family": "resource",
+      "categorie": "note",
+      "folder_if_ai": "tech",
+      "tags_if_ai": [
+        "ai"
+      ]
+    },
+    "astuce": {
+      "family": "resource",
+      "categorie": "note"
+    },
+    "inspiration-design": {
+      "family": "resource",
+      "categorie": "note"
+    },
+    "reference": {
+      "family": "resource",
+      "categorie": "note"
+    }
   }
 }

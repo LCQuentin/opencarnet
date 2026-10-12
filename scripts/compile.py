@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""Moteur de compilation (neutre) : transforme une analyse d'item Instagram
+"""Moteur de compilation (neutre) : transforme l'analyse d'un item sauvegardé
 en fiches, selon un fichier de configuration JSON.
 
-AUCUN chemin n'est codé en dur : racine, dossiers, thèmes, routage, frontmatter
-et index (MOC) proviennent de la config. C'est ce qui permet le même moteur pour
-un vault perso, un Notion/CSV, ou un usage générique.
+AUCUN chemin ni AUCUNE propriété n'est codé en dur : racine, dossiers, thèmes,
+routage, frontmatter, champs personnalisés et index (MOC) proviennent de la
+config. C'est ce qui permet le même moteur pour tous les usages.
 
 Usage :
     python3 compile.py --analysis analyses/x.json [--config config.json] [--dry-run]
+    python3 compile.py --print-prompt [--config config.json]
 
 Résolution de la config (par ordre) :
     1. --config
@@ -60,8 +61,13 @@ def safe_name(s: str) -> str:
     return re.sub(r"\s+", " ", s) or "Sans titre"
 
 
+YAML_RETYPED = re.compile(
+    r"^(?:\d{4}-\d{2}-\d{2}.*|[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?|"
+    r"true|false|yes|no|on|off|null|~)$", re.I)
+
+
 def yaml_str(v: str) -> str:
-    if v == "" or re.search(r"[:#\[\]{},&*!|>'\"%@`]", v) or v != v.strip():
+    if v == "" or re.search(r"[:#\[\]{},&*!|>'\"%@`]", v) or v != v.strip() or YAML_RETYPED.match(v):
         return '"' + v.replace("\\", "\\\\").replace('"', '\\"') + '"'
     return v
 
@@ -115,9 +121,12 @@ def resolve(ext: dict, cfg: dict):
     if ext.get("dossier_cible"):  # override explicite de l'analyse
         folder = str(ext["dossier_cible"])
 
-    cat = rule.get("categorie")
-    if not cat or cat == "(from analysis)":
-        cat = ext.get("categorie_vault") or cfg.get("frontmatter", {}).get("default_categorie", "Veille")
+    # categorie : valeur fixe, ou repère `{champ}` lu dans l'analyse
+    default_cat = cfg.get("frontmatter", {}).get("default_categorie", "")
+    cat = rule.get("categorie") or ""
+    if "{" in cat:
+        cat = interpolate(cat, ext) or default_cat
+    cat = cat or default_cat
 
     tags = list(cfg.get("frontmatter", {}).get("base_tags", []))
     tags += rule.get("tags", [])
@@ -203,25 +212,128 @@ def body_resource(ext: dict, src: str, cfg: dict) -> str:
 """
 
 
+# ---------- frontmatter (100% config) ----------
+#
+# config.frontmatter.fields = { "clé": valeur }, rendu dans cet ordre :
+#   - "texte {repère}"           -> chaîne, repères remplacés ;
+#   - "{repère}" seul            -> valeur brute (une liste reste une liste) ;
+#   - {"value": "{tags}", "style": "block"} -> liste en puces YAML ;
+#   - [] / false / 3             -> littéral YAML.
+# config.frontmatter.by_family = { "<famille>": { …mêmes règles… } } ajoute des
+# clés selon la famille de la fiche. `fields: {}` => aucune ligne de frontmatter.
+
+PLACEHOLDER = re.compile(r"\{([A-Za-z_]\w*)\}")
+BASE_LIST_FIELDS = {"themes", "tags", "tags_extra", "liens", "illustrations", "exploitation"}
+
+
+def interpolate(template: str, ctx: dict) -> str:
+    def sub(m):
+        v = ctx.get(m.group(1))
+        if isinstance(v, list):
+            return ", ".join(str(x) for x in v if x)
+        return "" if v is None else str(v)
+    return PLACEHOLDER.sub(sub, template)
+
+
+def check_config(cfg: dict) -> None:
+    """Refuse l'ancien format de frontmatter avec un message de migration clair."""
+    fm = cfg.get("frontmatter", {})
+    old = [k for k in ("type", "default_statut", "date_fields") if k in fm] + \
+          (["prompt_extra_fields"] if "prompt_extra_fields" in cfg else [])
+    if "fields" not in fm and (old or not fm):
+        raise SystemExit(
+            f"[!] {cfg.get('_path')} : ancien format de config ({', '.join(old) or 'frontmatter absent'}).\n"
+            "    Décrivez désormais vos propriétés dans frontmatter.fields "
+            "(et frontmatter.by_family pour les extras par famille).\n"
+            "    Voir reference/configuration.md (section Frontmatter) et config.example.json.")
+
+
+def list_fields(cfg: dict) -> set:
+    custom = {k for k, d in (cfg.get("custom_fields") or {}).items()
+              if isinstance(d, dict) and d.get("type") == "list"}
+    return BASE_LIST_FIELDS | custom
+
+
+def render_value(key: str, spec, ctx: dict, lists: set) -> str:
+    style = "flow"
+    if isinstance(spec, dict):
+        style, spec = spec.get("style", "flow"), spec.get("value", "")
+    if isinstance(spec, str):
+        m = PLACEHOLDER.fullmatch(spec)
+        if m:
+            name = m.group(1)
+            v = ctx.get(name)
+            if isinstance(v, list) or (v in (None, "") and name in lists):
+                items = [str(x) for x in (v or []) if x]
+                if style == "block" and items:
+                    return f"{key}:\n" + "\n".join(f"  - {yaml_str(i)}" for i in items)
+                return f"{key}: {yaml_list(items)}"
+        return f"{key}: {yaml_str(interpolate(spec, ctx))}"
+    if isinstance(spec, list):
+        return f"{key}: {yaml_list(spec)}"
+    if isinstance(spec, bool):
+        return f"{key}: {'true' if spec else 'false'}"
+    return f"{key}: {'' if spec is None else spec}"
+
+
 def build_frontmatter(ext: dict, route: dict, src: str, cfg: dict, today: str) -> str:
-    f = cfg.get("frontmatter", {})
-    tags = dedup(route["tags"] + (ext.get("tags_extra") or []))
-    lines = ["aliases: []", f"type: {yaml_str(str(f.get('type','ressource')))}",
-             f"categorie: {yaml_str(str(route['categorie']))}", "tags:"]
-    lines += [f"  - {yaml_str(str(t))}" for t in tags]
-    lines += [
-        f"themes: {yaml_list(ext.get('themes'))}",
-        f"statut: {yaml_str(str(f.get('default_statut','À consulter')))}",
-        f"casquettes: {yaml_list(ext.get('casquettes'))}",
-        f"projets_lies: {yaml_list(ext.get('projets_lies'))}",
-        f"source: {yaml_str(src)}",
-    ]
-    for df in f.get("date_fields", ["date_creation", "date_dernière_mise_a_jour"]):
-        lines.append(f'{df}: "{today}"')
-    if route["family"] == "prompt":
-        for k, v in (cfg.get("prompt_extra_fields") or {"outils": "[]", "partageable": "false"}).items():
-            lines.append(f"{k}: {v}")
+    spec = cfg.get("frontmatter", {})
+    ctx = dict(ext)
+    ctx.update(source_url=src, today=today, family=route["family"], folder=route["folder"],
+               categorie=route["categorie"], tags=dedup(route["tags"] + (ext.get("tags_extra") or [])))
+    fields = dict(spec.get("fields") or {})
+    fields.update((spec.get("by_family") or {}).get(route["family"]) or {})
+    if not fields:
+        return ""
+    lists = list_fields(cfg)
+    lines = [render_value(k, v, ctx, lists) for k, v in fields.items()]
     return "---\n" + "\n".join(lines) + "\n---\n"
+
+
+# ---------- prompt d'extraction (généré depuis la config) ----------
+
+def build_prompt(cfg: dict) -> str:
+    vocab = ", ".join(list((cfg.get("routes") or {}).keys()) + ["aucun"])
+    themes = ", ".join((cfg.get("themes") or {}).keys()) or "(libre)"
+    custom = cfg.get("custom_fields") or {}
+    custom_md = "\n".join(
+        f"- `{k}` ({d.get('type', 'text')}) : {d.get('prompt', '')}" for k, d in custom.items()
+        if isinstance(d, dict)) or "- (aucun)"
+    example = {"type_contenu": "…", "nom": "…", "resume": "…", "exploitation": ["…"],
+               "substance_technique": {"modele_cible": "", "stack": [], "methode": "", "etapes": [],
+                                       "placeholders": [], "details": ""},
+               "citation_cle": "", "liens": [], "illustrations": [], "themes": [], "tags_extra": [],
+               "confiance": "haute | moyenne | basse"}
+    for k, d in custom.items():
+        example[k] = [] if isinstance(d, dict) and d.get("type") == "list" else ""
+    shape = json.dumps({"id": "…", "source_url": "…", "auteur": "…", "date_source": "…",
+                        "canal": "…", "extraction": [example]}, ensure_ascii=False, indent=2)
+    return f"""You receive a SAVED ITEM (Instagram, X, TikTok, YouTube…): its caption or text,
+its audio transcript and the visual reading of its key images. Your task: extract
+the USABLE SUBSTANCE, not an entertainment summary.
+
+1. Split into independent substances (0..n): one entry per substance.
+2. `type_contenu`: one of [{vocab}].
+3. `themes`: only from [{themes}].
+4. Fill the fields. Invent NOTHING: if a detail isn't legible, leave it empty and
+   lower `confiance` (`basse` => the note goes to review, never filed).
+5. `nom` = explicit title you could find again in 6 months.
+6. `exploitation`: 1–3 concrete uses — never empty.
+7. Custom fields for this setup:
+{custom_md}
+8. If no usable substance: {{"extraction": []}}.
+
+Constraints: never copy a paid asset wholesale (extract + link); distinguish the
+model CITED from the model USED; don't infer a tool name from a mis-transcribed word.
+
+Output (one JSON per item):
+{shape}
+
+[CAPTION]     : …
+[TRANSCRIPT]  : …
+[SCREEN READ] : …
+[METADATA]    : author=…, date=…, url=…
+"""
 
 
 # ---------- dédoublonnage ----------
@@ -280,12 +392,20 @@ def update_moc(root: Path, moc_rel: str, section: str, name: str, tc: str, today
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--analysis", required=True)
+    ap.add_argument("--analysis")
+    ap.add_argument("--print-prompt", action="store_true",
+                    help="affiche le prompt d'extraction adapté à la config, puis quitte")
     ap.add_argument("--config", default=None)
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
     cfg = load_config(args.config)
+    check_config(cfg)
+    if args.print_prompt:
+        print(build_prompt(cfg))
+        return 0
+    if not args.analysis:
+        ap.error("--analysis est requis (ou --print-prompt)")
     root = Path(os.path.expanduser(str(cfg.get("root", "."))))
     scan_dir = (cfg.get("index") or {}).get("scan_dir") or "."
     inbox_dir = cfg.get("inbox_dir", "inbox")
@@ -323,7 +443,8 @@ def main() -> int:
             print(f"[~] doublon -> fusion ({status}) : {existing}")
             updated += 1
             continue
-        content = build_frontmatter(ext, route, src, cfg, today) + "\n" + \
+        fm = build_frontmatter(ext, route, src, cfg, today)
+        content = (fm + "\n" if fm else "") + \
             (body_prompt if route["family"] == "prompt" else body_resource)(ext, src, cfg)
 
         if args.dry_run:

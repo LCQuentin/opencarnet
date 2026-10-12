@@ -1,6 +1,6 @@
 ---
 name: opencarnet
-description: Turn saved Instagram reels/posts (and X / Twitter likes & bookmarks) into structured, classified knowledge notes (destination configurable — Obsidian, Markdown, Notion/CSV). Extracts the substance (tool/service, skill, prompt, AI model, tip, reference) with technical details, routes each item via a config file, dedupes and updates the index. Use on "saved reels", "saved posts", "my Instagram saves", "Instagram backlog", a Meta export, an X / Twitter archive, "my likes", "my bookmarks", a list of IG links or a folder of captures. FR — Transforme vos reels/posts Instagram enregistrés en fiches de connaissance classées (destination configurable). À utiliser sur "reels enregistrés", "posts sauvegardés", "mes sauvegardes Instagram", "traiter ma base Instagram", "backlog Instagram", un export Meta, une archive X / Twitter, "mes J'aime", "mes signets", une liste de liens IG ou un dossier de captures.
+description: Turn saved Instagram reels/posts (and X / Twitter likes & bookmarks) into structured, classified knowledge notes (destination and note format configurable — any Markdown notes app). Extracts the substance (tool/service, skill, prompt, AI model, tip, reference) with technical details, routes each item via a config file, dedupes and updates the index. Use on "saved reels", "saved posts", "my Instagram saves", "Instagram backlog", a Meta export, an X / Twitter archive, "my likes", "my bookmarks", a list of IG links or a folder of captures. FR — Transforme vos reels/posts Instagram enregistrés en fiches de connaissance classées (destination configurable). À utiliser sur "reels enregistrés", "posts sauvegardés", "mes sauvegardes Instagram", "traiter ma base Instagram", "backlog Instagram", un export Meta, une archive X / Twitter, "mes J'aime", "mes signets", une liste de liens IG ou un dossier de captures.
 ---
 
 # OpenCarnet
@@ -124,8 +124,13 @@ python3 scripts/build_bundle.py --work ./work --out ./bundles/
 ### 3. Analyze — apply the extraction schema
 
 For each bundle, produce **one JSON extraction** with a controlled vocabulary.
-The exact schema, the `type_contenu` vocabulary and the normalization prompt are
-in **`reference/extraction-schema.md`** (read before this step).
+The exact schema is in **`reference/extraction-schema.md`** (read before this
+step). Get the prompt for the active config — vocabulary, themes and the user's
+custom fields — with:
+
+```bash
+python3 scripts/compile.py --print-prompt
+```
 
 Principle: a single item can hold several substances (e.g. a reel that cites a
 tool **and** gives a tip) → allow several `extraction[]` per bundle, each routed
@@ -180,7 +185,7 @@ The engine:
 | File | Role |
 |---|---|
 | `reference/extraction-schema.md` | Extraction schema + `type_contenu` vocabulary + normalization prompt |
-| `reference/configuration.md` | Config schema (routing, themes, frontmatter, index) — neutral engine |
+| `reference/configuration.md` | Config schema (routing, themes, frontmatter, custom fields, index) — neutral engine |
 | `config.example.json` | Neutral default config (no personal paths) |
 | `scripts/parse_meta_export.py` | Meta (Instagram) export → `items.csv` |
 | `scripts/parse_x_export.py` | X / Twitter archive → `items.csv` |

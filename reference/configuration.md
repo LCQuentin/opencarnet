@@ -24,17 +24,24 @@ Keep your **personal** config out of the repo (it should not be published).
   "ai_themes": ["tech"],
   "themes": { "<slug>": "<path relative to root>" },
   "frontmatter": {
-    "type": "note",
-    "default_categorie": "note",
-    "default_statut": "to-review",
+    "fields": {                           // properties, in this order ({} => no frontmatter)
+      "tags": { "value": "{tags}", "style": "block" },
+      "category": "{categorie}",
+      "status": "to-review",
+      "source": "{source_url}",
+      "created": "{today}"
+    },
+    "by_family": { "prompt": { "tested": false } },   // extra properties per family
     "base_tags": ["imported"],
-    "date_fields": ["created", "updated"]
+    "default_categorie": "note"
   },
-  "prompt_extra_fields": { "source": "[]" },
+  "custom_fields": {                      // your own fields, filled by the AI
+    "projects": { "type": "list", "prompt": "Related projects, as [[wikilinks]]. Empty if unsure." }
+  },
   "routes": {
     "<type_contenu>": {
       "family": "prompt" | "resource",     // prompt => "prompt" body, else "resource"
-      "categorie": "prompt" | "note" | "(from analysis)",
+      "categorie": "prompt" | "note" | "{a_custom_field}",
       "folder": "…",                        // fixed destination (optional)
       "folder_if_ai": "…",                 // alternative destination when theme is AI
       "tags": ["…"],                        // tags added
@@ -48,6 +55,33 @@ Keep your **personal** config out of the repo (it should not be published).
   }
 }
 ```
+
+## Frontmatter
+
+The engine writes **no property of its own**: every key comes from
+`frontmatter.fields`, in order. Values:
+
+| Value | Result |
+|---|---|
+| `"text {placeholder}"` | string, placeholders replaced (lists joined with `, `) |
+| `"{placeholder}"` alone | raw value — a list stays a YAML list (`[a, b]`) |
+| `{ "value": "{tags}", "style": "block" }` | list written as YAML bullets |
+| `[]`, `false`, `3` | YAML literal |
+
+Placeholders: any field of the analysis (including custom fields), plus
+`{source_url}`, `{today}`, `{tags}` (base + route + `tags_extra`), `{categorie}`
+(resolved by the route), `{family}`, `{folder}`.
+
+Configs in the first format (`type`, `default_statut`, `date_fields`,
+`prompt_extra_fields`) are refused with a migration message: move those values
+into `frontmatter.fields` / `frontmatter.by_family`.
+
+## Custom fields
+
+`custom_fields` declares **your own** fields (roles, projects, category…). Each
+has a `type` (`list` or `text`) and a `prompt`: the instruction given to the AI.
+They are added to the extraction prompt (`compile.py --print-prompt`) and can be
+used as placeholders in `frontmatter.fields` or in a route's `categorie`.
 
 ## Routing resolution
 1. Take the rule for the `type_contenu`.
