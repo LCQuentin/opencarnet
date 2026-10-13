@@ -22,14 +22,15 @@ Output columns:
 from __future__ import annotations
 
 import argparse
-import csv
 import hashlib
 import json
 import re
 import sys
-import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _pivot  # noqa: E402
 
 YTD_PREFIX = re.compile(r"window\.YTD\.([A-Za-z0-9_]+)\.part\d+\s*=\s*", re.I)
 TWEET_DATE = "%a %b %d %H:%M:%S %z %Y"
@@ -87,34 +88,19 @@ def extract_items(kind: str, arr) -> list[dict]:
         hashtags = " ".join(re.findall(r"#\w+", text))
         if not (tid or url or text):
             continue
-        key = tid or url or hashlib.sha1(text.encode()).hexdigest()
-        items.append({
-            "id": hashlib.sha1(str(key).encode()).hexdigest()[:12],
-            "url": canonical_url(tid) if tid else url,
-            "auteur": "",
-            "handle": handle,
-            "date_source": date,
-            "canal": "tweet",
-            "legende": text,
-            "hashtags": hashtags,
-            "collection": kind,
-        })
+        # id stable : tweetId > url > hash(texte) (comme avant l'extraction du pivot)
+        id_key = tid or url or hashlib.sha1(text.encode()).hexdigest()
+        items.append(_pivot.make_item(
+            canonical_url(tid) if tid else url, canal="tweet",
+            handle=handle, date_source=date, legende=text, hashtags=hashtags,
+            collection=kind, id_key=str(id_key)))
     return items
 
 
 def iter_js(path: Path):
     """Texte des .js de l'archive — lus dans le .zip sans tout extraire (médias)."""
-    if path.is_file() and path.suffix.lower() == ".zip":
-        with zipfile.ZipFile(path) as z:
-            for info in z.infolist():
-                if info.filename.lower().endswith(".js"):
-                    yield z.read(info).decode("utf-8", errors="replace")
-    else:
-        for f in path.rglob("*.js"):
-            try:
-                yield f.read_text(encoding="utf-8", errors="replace")
-            except OSError:
-                continue
+    for _name, data in _pivot.iter_members(path, lambda n: n.lower().endswith(".js")):
+        yield data.decode("utf-8", errors="replace")
 
 
 def main() -> int:
@@ -142,28 +128,9 @@ def main() -> int:
         files_seen += 1
         all_items += extract_items(kind, arr)
 
-    seen, rows = set(), []
-    for it in all_items:
-        k = it["url"] or it["id"]
-        if k in seen:
-            continue
-        seen.add(k)
-        rows.append(it)
-
+    rows = _pivot.dedup_items(all_items)
     out = Path(args.out).expanduser()
-    cols = ["id", "url", "auteur", "handle", "date_source", "canal", "legende", "hashtags", "collection"]
-    with out.open("w", newline="", encoding="utf-8") as fh:
-        w = csv.DictWriter(fh, fieldnames=cols)
-        w.writeheader()
-        w.writerows(rows)
-    out.with_suffix(".json").write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
-
-    by_kind = {}
-    for r in rows:
-        by_kind[r["collection"]] = by_kind.get(r["collection"], 0) + 1
-    print(f"[ok] {len(rows)} items depuis {files_seen} fichier(s) X -> {out}")
-    for k, v in sorted(by_kind.items()):
-        print(f"     {k}: {v}")
+    _pivot.write_items(rows, out, files_seen)
     return 0
 
 

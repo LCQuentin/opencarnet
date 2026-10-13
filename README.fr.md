@@ -22,7 +22,7 @@ OpenCarnet réunit ces trois morceaux, en fait une fiche lisible, et la range. O
 
 Trois étapes, une seule commande par étape :
 
-1. **Récupérer la liste** de vos enregistrements (depuis l'export officiel de vos données Instagram ou X, ou une simple liste de liens).
+1. **Récupérer la liste** de vos enregistrements (depuis l'export officiel Instagram, X, TikTok, YouTube ou LinkedIn, ou une simple liste de liens).
 2. **Lire chaque contenu** : OpenCarnet télécharge la vidéo, transcrit ce qui est dit, et lit le texte à l'écran.
 3. **Ranger** : votre assistant IA en tire une fiche courte (de quoi il s'agit, les détails utiles, le lien vers l'original), puis OpenCarnet la range à sa place, sans doublon.
 
@@ -80,27 +80,36 @@ python3 scripts/parse_x_export.py "~/Downloads/twitter-archive.zip" --out items-
 
 Sur X, la plupart des posts sont du texte : le contenu est déjà dans l'export. Vous pouvez donc souvent sauter le téléchargement et la transcription, et passer directement à l'analyse.
 
-### TikTok, LinkedIn, YouTube (support en cours)
+### TikTok, LinkedIn, YouTube
 
-Ces trois sources arrivent (voir la feuille de route). Vous pouvez déjà préparer vos exports dès maintenant.
+Même principe sur ces plateformes : demandez votre export de données, puis OpenCarnet en tire les **signaux de sauvegarde** (pas d'historique, pas de messages). Chaque export devient la même liste d'enregistrements :
+
+```bash
+python3 scripts/parse_tiktok_export.py "~/Downloads/tiktok-data.zip" --out items.csv
+python3 scripts/parse_youtube_takeout.py "~/Downloads/takeout-XXXX.zip" --out items.csv
+python3 scripts/parse_linkedin_export.py "~/Downloads/linkedin-archive.zip" --out items.csv
+```
 
 **TikTok**
 1. Profil → menu ☰ → **Paramètres et confidentialité**.
 2. **Compte** → **Télécharger vos données**.
 3. Choisissez « All data » (ou au minimum **Activity**), format **JSON**.
-4. Demandez, puis téléchargez sous ~4 jours. Vous obtiendrez vos favoris et vos « J'aime » (date + lien).
+4. Demandez, puis téléchargez sous ~4 jours. Vos **favoris** sont importés (`--include-likes` pour aussi vos « J'aime »).
 
 **LinkedIn** (sur ordinateur uniquement)
 1. Icône **Moi** → **Paramètres et confidentialité**.
 2. **Confidentialité des données** → **Télécharger vos données**.
 3. Cochez **Saved Items** → **Demander l'archive**.
-4. Téléchargez le fichier (lien valable 72 h). Vous obtiendrez `Saved Items.csv` (lien + date).
+4. Téléchargez le fichier (lien valable 72 h). Vous obtenez `Saved Items.csv` — des liens seuls : ces fiches arrivent dans votre dossier « à relire ».
 
 **YouTube**
 1. Allez sur `takeout.google.com`.
 2. Décochez tout, puis cochez **YouTube and YouTube Music**.
-3. Cochez au minimum **playlists** (contient vos vidéos aimées) et **history**.
-4. Créez l'export. Google vous envoie un lien par e-mail. Vous obtiendrez surtout des identifiants de vidéos (et des dates), pas les vidéos.
+3. Gardez les **playlists** (c'est le signal de sauvegarde).
+4. Créez l'export. Google vous envoie un lien par e-mail.
+
+> Ces écrans d'export changent souvent. Si une étape diffère, demandez à votre IA
+> de s'adapter — les parseurs sont écrits pour tolérer les changements de format.
 
 ## Pour commencer
 
@@ -174,9 +183,11 @@ Les détails techniques (les commandes complètes, le schéma des fiches, les r�
 ## Feuille de route
 
 - [x] **X / Twitter** : vos « J'aime » et vos signets, mêmes fiches que pour Instagram.
-- [ ] **TikTok** : vos vidéos favorites.
-- [ ] **LinkedIn** : vos éléments enregistrés.
-- [ ] **YouTube** : vos « J'aime » et vos playlists.
+- [x] **TikTok** : vos favoris (« J'aime » en option).
+- [x] **YouTube** : vos playlists (Google Takeout).
+- [x] **LinkedIn** : vos éléments enregistrés (importés comme liens à relire).
+
+Parseurs et procédures d'export en place ; chaque source est affinée au fil des exports réels.
 
 ## Licence
 

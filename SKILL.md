@@ -1,6 +1,6 @@
 ---
 name: opencarnet
-description: Turn saved Instagram reels/posts (and X / Twitter likes & bookmarks) into structured, classified knowledge notes (destination and note format configurable — any Markdown notes app). Extracts the substance (tool/service, skill, prompt, AI model, tip, reference) with technical details, routes each item via a config file, dedupes and updates the index. Use on "saved reels", "saved posts", "my Instagram saves", "Instagram backlog", a Meta export, an X / Twitter archive, "my likes", "my bookmarks", a list of IG links or a folder of captures. FR — Transforme vos reels/posts Instagram enregistrés en fiches de connaissance classées (destination configurable). À utiliser sur "reels enregistrés", "posts sauvegardés", "mes sauvegardes Instagram", "traiter ma base Instagram", "backlog Instagram", un export Meta, une archive X / Twitter, "mes J'aime", "mes signets", une liste de liens IG ou un dossier de captures.
+description: Turn saved Instagram reels/posts (and X / Twitter likes & bookmarks, TikTok favorites, YouTube playlists, LinkedIn saved items) into structured, classified knowledge notes (destination and note format configurable — any Markdown notes app or a CSV/JSONL table). Extracts the substance (tool/service, skill, prompt, AI model, tip, reference) with technical details, routes each item via a config file, dedupes and updates the index. Use on "saved reels", "saved posts", "my Instagram saves", "Instagram backlog", a Meta export, "my TikTok favorites", a TikTok data export, "my YouTube likes / playlists", a Google Takeout, "my LinkedIn saved items", an X / Twitter archive, "my likes", "my bookmarks", a list of links or a folder of captures. FR — Transforme vos reels/posts Instagram enregistrés (et X / TikTok / YouTube / LinkedIn) en fiches de connaissance classées (destination configurable) ; utilisez sur "reels enregistrés", "favoris TikTok", "Takeout YouTube", "Saved Items LinkedIn", un export Meta, une archive X / Twitter, "mes J'aime", "mes signets".
 ---
 
 # OpenCarnet
@@ -100,6 +100,39 @@ python3 scripts/parse_x_export.py "~/Downloads/twitter-archive.zip" --out items.
 > For X, most posts are text: the tweet text is already in the export, so you can
 > often skip the download/transcribe step and analyze the text directly.
 
+**F. TikTok export** ("Download your data", JSON) — **Favorite Videos** by default;
+your **likes** are a weak, high-volume signal, opt-in only. Watch history, searches
+and comments are ignored.
+
+```bash
+python3 scripts/parse_tiktok_export.py "~/Downloads/tiktok-data.zip" --out items.csv
+# add --include-likes to also import your likes (collection: like)
+```
+
+**G. YouTube (Google Takeout)** — keep only the **playlists** (a save signal);
+watch history is ignored.
+
+```bash
+python3 scripts/parse_youtube_takeout.py "~/Downloads/takeout-XXXX.zip" --out items.csv
+```
+
+> Playlist file/folder names are localized in Takeout: the parser recognizes them
+> by structure (a video-id column **and** a "playlist" timestamp column), not by
+> name. For long videos, prefer subtitles over Whisper (see step 2).
+
+**H. LinkedIn archive** — `Saved Items.csv` holds **URL + date only** (no text).
+These items are imported as **links to review**: the analysis is low-confidence by
+construction, so `compile.py` sends them to the inbox. This is deliberate — never
+file a note from a bare link.
+
+```bash
+python3 scripts/parse_linkedin_export.py "~/Downloads/linkedin-archive.zip" --out items.csv
+```
+
+All modes write the same pivot (`items.csv` + `items.json`), so steps 2–5 are
+identical whatever the source. Only **save signals** are ingested — no watch
+history, searches, DMs or private data.
+
 ### 2. Enrich — download + transcribe + read the screen
 
 For each item with a `url`:
@@ -111,6 +144,17 @@ bash scripts/fetch_media.sh "https://www.instagram.com/reel/..." ./work/
 # Transcribe audio (faster-whisper if available, else whisper CLI)
 python3 scripts/transcribe.py ./work/<id>.m4a --out ./work/<id>.txt
 ```
+
+> **Long videos (YouTube…).** Downloading a 30-minute video, transcribing it and
+> reading 12 frames is slow and rarely useful. Fetch **subtitles first** — they
+> become `<id>.txt` directly, no Whisper:
+>
+> ```bash
+> bash scripts/fetch_media.sh "<url>" ./work --subs
+> ```
+>
+> Fall back to the normal download only when no subtitle exists. Add
+> `--no-frames` to skip the frame sheet when it adds nothing.
 
 Then **read visually** the generated frame sheet (`<id>_sheet.jpg`) to recover
 on-screen text (tool names, prompts, code, prices, UI). For carousels/posts, use
@@ -215,9 +259,13 @@ The engine:
 | `formats/` · `templates/` | Provided formats and templates, FR and EN |
 | `presets/` | Ready configs for `--init` (plain-markdown, obsidian, logseq) — no personal element |
 | `config.example.json` | Neutral default config (no personal paths) |
+| `scripts/_pivot.py` | Shared pivot helpers (canonical URLs, id, CSV+JSON output, recap) |
 | `scripts/parse_meta_export.py` | Meta (Instagram) export → `items.csv` |
 | `scripts/parse_x_export.py` | X / Twitter archive → `items.csv` |
-| `scripts/fetch_media.sh` | yt-dlp + ffmpeg: video, info.json, frame sheet |
+| `scripts/parse_tiktok_export.py` | TikTok export → `items.csv` (favorites; `--include-likes`) |
+| `scripts/parse_youtube_takeout.py` | Google Takeout (YouTube playlists) → `items.csv` |
+| `scripts/parse_linkedin_export.py` | LinkedIn `Saved Items.csv` → `items.csv` (links to review) |
+| `scripts/fetch_media.sh` | yt-dlp + ffmpeg: video, info.json, frame sheet (`--subs` for long videos) |
 | `scripts/transcribe.py` | Whisper (faster-whisper or CLI) → `.txt` |
 | `scripts/build_bundle.py` | caption + transcript + metadata → `bundle.md` |
 | `scripts/compile.py` | Neutral config-driven engine: `--init` setup, writes/dedupes notes + index, `--print-prompt` |

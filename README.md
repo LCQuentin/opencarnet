@@ -22,7 +22,7 @@ OpenCarnet brings those three parts together, makes a readable note, and files i
 
 Three steps, one command each:
 
-1. **Get the list** of everything you saved (from the official Instagram or X data export, or a simple list of links).
+1. **Get the list** of everything you saved (from the official export of Instagram, X, TikTok, YouTube or LinkedIn, or a simple list of links).
 2. **Read each item**: OpenCarnet downloads the video, transcribes what is said, and reads the text on screen.
 3. **File it**: your AI assistant turns it into a short note (what it is, the useful details, a link to the original), then OpenCarnet files it in the right place, with no duplicates.
 
@@ -80,27 +80,36 @@ python3 scripts/parse_x_export.py "~/Downloads/twitter-archive.zip" --out items-
 
 On X, most posts are text: the content is already in the export. So you can often skip the download and transcribe step and go straight to analysis.
 
-### TikTok, LinkedIn, YouTube (coming soon)
+### TikTok, LinkedIn, YouTube
 
-These three sources are on the way (see the roadmap). You can already prepare your exports.
+Same idea on these platforms: ask for your data export, then OpenCarnet pulls the **save signals** (no watch history, no DMs). Each export is turned into the same list of saves:
+
+```bash
+python3 scripts/parse_tiktok_export.py "~/Downloads/tiktok-data.zip" --out items.csv
+python3 scripts/parse_youtube_takeout.py "~/Downloads/takeout-XXXX.zip" --out items.csv
+python3 scripts/parse_linkedin_export.py "~/Downloads/linkedin-archive.zip" --out items.csv
+```
 
 **TikTok**
 1. Profile → menu ☰ → **Settings and privacy**.
 2. **Account** → **Download your data**.
 3. Choose "All data" (or at least **Activity**), format **JSON**.
-4. Request it, then download within ~4 days. You get your favorites and likes (date + link).
+4. Request it, then download within ~4 days. Your **favorites** are imported (add `--include-likes` for your likes too).
 
 **LinkedIn** (desktop only)
 1. **Me** icon → **Settings & Privacy**.
 2. **Data Privacy** → **Download your data**.
 3. Tick **Saved Items** → **Request archive**.
-4. Download the file (link valid 72h). You get `Saved Items.csv` (link + date).
+4. Download the file (link valid 72h). You get `Saved Items.csv` — links only, so these notes land in your "to review" folder.
 
 **YouTube**
 1. Go to `takeout.google.com`.
 2. Deselect everything, then tick **YouTube and YouTube Music**.
-3. Tick at least **playlists** (holds your liked videos) and **history**.
-4. Create the export. Google emails you a link. You get mostly video IDs (and dates), not the videos.
+3. Keep **playlists** (that is the save signal).
+4. Create the export. Google emails you a link.
+
+> These export screens change often. If a step looks different, tell your AI to
+> adapt — the parsers are written to be tolerant to format changes.
 
 ## Getting started
 
@@ -174,9 +183,11 @@ The technical details (full commands, the note format, advanced settings) are he
 ## Roadmap
 
 - [x] **X / Twitter**: your likes and bookmarks, same notes as Instagram.
-- [ ] **TikTok**: your favorites.
-- [ ] **LinkedIn**: your saved items.
-- [ ] **YouTube**: your likes and playlists.
+- [x] **TikTok**: your favorites (likes optional).
+- [x] **YouTube**: your playlists (Google Takeout).
+- [x] **LinkedIn**: your saved items (imported as links to review).
+
+Parsers and export steps are in place; each source is refined as real exports come in.
 
 ## License
 

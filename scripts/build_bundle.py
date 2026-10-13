@@ -17,6 +17,10 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _pivot  # noqa: E402
+
 
 def load_info(path: Path) -> dict:
     try:
@@ -55,13 +59,14 @@ def build_one(info_path: Path, work: Path, out: Path) -> Path:
     sheet_line = f"![[{sheet.name}]]" if sheet.exists() else "_(pas de frames)_"
 
     q = json.dumps  # chaîne JSON = scalaire YAML valide (protège « : », « # »…)
+    canal = _pivot.canal_from_url(url) or "post"
     md = f"""---
 id: {q(iid)}
 url: {q(url)}
 auteur: {q(author, ensure_ascii=False)}
 handle: {q(handle, ensure_ascii=False)}
 date_source: {q(date)}
-canal: {"reel" if "/reel" in url else "post"}
+canal: {q(canal)}
 duree_s: {duration if duration is not None else ""}
 ---
 

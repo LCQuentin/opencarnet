@@ -21,15 +21,15 @@ Les items sans permalien gardent une colonne `url` vide : ils sont comptés
 from __future__ import annotations
 
 import argparse
-import csv
-import hashlib
 import html
 import json
 import re
 import sys
-import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _pivot  # noqa: E402
 
 IG_URL_RE = re.compile(
     r"https?://(?:www\.)?instagram\.com/(?:p|reel|reels|tv)/([A-Za-z0-9_-]+)",
@@ -119,18 +119,15 @@ def parse_modern_item(it: dict) -> dict | None:
     if not url and not auteur:
         return None
     caption = "\n".join(dict.fromkeys(captions))  # dédup en gardant l'ordre
-    key = it.get("fbid") or url or f"{auteur}|{it.get('timestamp')}"
-    return {
-        "id": hashlib.sha1(str(key).encode()).hexdigest()[:12],
-        "url": url,
-        "auteur": auteur or title,
-        "handle": handle,
-        "date_source": iso_from_ts(it.get("timestamp")),
-        "canal": "reel" if "/reel" in url else "post",
-        "legende": caption,
-        "hashtags": hashtags,
-        "collection": "saved",
-    }
+    # id stable : fbid > url > auteur|timestamp (comme avant l'extraction du pivot)
+    id_key = it.get("fbid") or (None if url else f"{auteur}|{it.get('timestamp')}")
+    return _pivot.make_item(
+        url, auteur=auteur or title, handle=handle,
+        date_source=iso_from_ts(it.get("timestamp")),
+        canal="reel" if "/reel" in url else "post",
+        legende=caption, hashtags=hashtags, collection="saved",
+        id_key=str(id_key) if id_key else None,
+    )
 
 
 def parse_legacy(data) -> list[dict]:
@@ -157,13 +154,12 @@ def parse_legacy(data) -> list[dict]:
                     author = str(v.get("value", v.get("title", "")) if isinstance(v, dict) else v)
         if not url and not author:
             continue
-        items.append({
-            # url, sinon auteur + date : évite de fusionner les saves sans URL d'un même auteur
-            "id": hashlib.sha1((url or f"{author}|{saved_on}").encode()).hexdigest()[:12],
-            "url": url, "auteur": author, "handle": author,
-            "date_source": iso_from_ts(saved_on), "canal": "reel" if "/reel" in url else "post",
-            "legende": "", "hashtags": "", "collection": re.sub(r"\[.*", "", path.split(".")[1]) if "." in path else "saved",
-        })
+        items.append(_pivot.make_item(
+            url, auteur=author, handle=author, date_source=iso_from_ts(saved_on),
+            canal="reel" if "/reel" in url else "post", collection=
+            re.sub(r"\[.*", "", path.split(".")[1]) if "." in path else "saved",
+            id_key=None if url else f"{author}|{saved_on}",
+        ))
     return items
 
 
@@ -174,12 +170,7 @@ def parse_html(text: str) -> list[dict]:
         if url in seen:
             continue
         seen.add(url)
-        items.append({
-            "id": hashlib.sha1(url.encode()).hexdigest()[:12], "url": url,
-            "auteur": "", "handle": "", "date_source": "",
-            "canal": "reel" if "/reel" in url else "post",
-            "legende": "", "hashtags": "", "collection": "saved",
-        })
+        items.append(_pivot.make_item(url, collection="saved"))
     return items
 
 
@@ -204,15 +195,9 @@ def iter_sources(root: Path):
     extraire l'export complet (souvent plusieurs Go de médias)."""
     if root.is_file() and root.suffix.lower() == ".json":
         yield root.name, root.read_text(encoding="utf-8", errors="replace")
-    elif root.is_file() and root.suffix.lower() == ".zip":
-        with zipfile.ZipFile(root) as z:
-            for info in z.infolist():
-                if not info.is_dir() and is_target(info.filename):
-                    yield info.filename, z.read(info).decode("utf-8", errors="replace")
     else:
-        for f in root.rglob("*"):
-            if f.is_file() and is_target(f.name):
-                yield str(f), f.read_text(encoding="utf-8", errors="replace")
+        for name, data in _pivot.iter_members(root, lambda n: is_target(n)):
+            yield name, data.decode("utf-8", errors="replace")
 
 
 def main() -> int:
@@ -237,30 +222,9 @@ def main() -> int:
         except Exception as exc:  # noqa: BLE001
             print(f"[!] ignore {name} : {exc}", file=sys.stderr)
 
-    # dédup (url, sinon id)
-    seen, rows = set(), []
-    for it in all_items:
-        k = it["url"] or it["id"]
-        if k in seen:
-            continue
-        seen.add(k)
-        rows.append(it)
-
+    rows = _pivot.dedup_items(all_items)
     out = Path(args.out).expanduser()
-    cols = ["id", "url", "auteur", "handle", "date_source", "canal", "legende", "hashtags", "collection"]
-    with out.open("w", newline="", encoding="utf-8") as fh:
-        w = csv.DictWriter(fh, fieldnames=cols)
-        w.writeheader()
-        w.writerows(rows)
-    out.with_suffix(".json").write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
-
-    with_url = sum(1 for r in rows if r["url"])
-    with_cap = sum(1 for r in rows if r["legende"])
-    print(
-        f"[ok] {len(rows)} items depuis {files_seen} fichier(s) -> {out}\n"
-        f"     {with_url} avec URL, {len(rows) - with_url} sans URL (à compléter), {with_cap} avec légende.\n"
-        f"     sidecar : {out.with_suffix('.json')}"
-    )
+    _pivot.write_items(rows, out, files_seen)
     return 0
 
 
