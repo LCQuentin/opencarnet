@@ -49,7 +49,7 @@ config's `language` (`en` | `fr`).
   "templates_dir": "~/my-templates",      // optional: your own templates, searched first
   "link_style": "wikilink",               // or "markdown"
   "review_dir": "to-review",              // where low-confidence items land (old name: inbox_dir)
-  "index": { "scan_dir": "notes" },       // folder scanned for deduplication (review_dir is always scanned too)
+  "index": { "scan_dir": "" },             // EXTRA folder scanned for dedup; destination folders are always scanned (never all of root)
   "default_theme": "general",
   "ai_themes": ["tech"],
   "themes": { "<slug>": "<path relative to root>" },
@@ -122,9 +122,13 @@ used as placeholders in `frontmatter.fields` or in a route's `categorie`.
 3. `family=resource`:
    - if `folder_if_ai` and a theme ∈ `ai_themes` → `folder_if_ai` ;
    - otherwise → the folder of the **first** theme (`themes[0]`), else `default_theme`.
-4. A `dossier_cible` provided by the analysis **takes precedence** over all.
+4. A `dossier_cible` provided by the analysis **takes precedence** over all —
+   but it is **forced under `root`**: an absolute path or a `../` escape is
+   refused and the item goes to `review_dir` instead.
 5. A `folder` set on the note's **format** overrides steps 2–3 (not step 4).
-6. `confiance == "basse"` **or** empty `source_url` → `review_dir` (never indexed).
+6. `confiance == "basse"`, **or** empty `source_url`, **or** an extraction with no
+   content (empty `resume`, `substance_technique`, `citation_cle` **and** format
+   `donnees` — a bare `liens` alone is not content) → `review_dir` (never indexed).
 
 ## Output formats
 
@@ -157,9 +161,12 @@ Airtable or Sheets — set `output`:
 ## Methodology rules (storage-independent)
 - **"List" granularity**: recipe → one note; tool list → one note per tool;
   other lists (furniture, brands, cultural recs…) → one recap note per list.
-- **Dedup** by normalized name before creating: an existing note is never
-  overwritten, the new source URL is appended to it (non-destructive merge).
-  No dedup on URL alone — one source can legitimately yield several notes.
+- **Dedup** by normalized name (Unicode-aware) before creating: an existing note
+  is never overwritten, the new source URL is appended to it (non-destructive
+  merge). Only your **destination folders** (routes, themes, formats, review) plus
+  an explicit `index.scan_dir` are scanned — never all of `root`, so ordinary
+  notes that happen to share a name are left alone. No dedup on URL alone — one
+  source can legitimately yield several notes.
 - **Index** (if `moc` configured): appended in a dedicated section, deduped,
   without touching curated sections.
 - **Filename**: `<Readable name>.md`; `/ \ : | # ^ [ ] * " < > ?` are replaced

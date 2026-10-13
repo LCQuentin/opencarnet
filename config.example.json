@@ -5,7 +5,8 @@
   "link_style": "wikilink",
   "review_dir": "to-review",
   "index": {
-    "scan_dir": "."
+    "_comment": "Extra folder to scan for deduplication. Your destination folders are ALWAYS scanned; leave empty to scan only them (never scans all of root).",
+    "scan_dir": ""
   },
   "default_theme": "general",
   "ai_themes": [

@@ -93,21 +93,23 @@ def as_items(v) -> list:
     return [v]
 
 
-def to_text(v) -> str:
+def to_text(v, lang: str = "en") -> str:
     if empty(v):
         return ""
     if isinstance(v, list):
-        return ", ".join(to_text(x) for x in v if not empty(x))
+        return ", ".join(to_text(x, lang) for x in v if not empty(x))
     if isinstance(v, bool):
-        return "oui" if v else "non"
+        if lang == "fr":
+            return "oui" if v else "non"
+        return "yes" if v else "no"
     if isinstance(v, float) and v.is_integer():
         return str(int(v))
     return str(v)
 
 
-def fmt_minutes(v) -> str:
+def fmt_minutes(v, lang: str = "en") -> str:
     if isinstance(v, bool) or not isinstance(v, (int, float)):
-        return to_text(v)
+        return to_text(v, lang)
     m = int(round(v))
     if m < 60:
         return f"{m} min"
@@ -118,16 +120,17 @@ def fmt_minutes(v) -> str:
 def apply_filter(v, flt: str, ctx: dict, opts: dict):
     name, _, arg = flt.partition(":")
     name = name.strip()
+    lang = opts.get("lang", "en")
     if name == "defaut":
         return arg if empty(v) else v
     if name == "ou":
         return lookup(ctx, arg.strip()) if empty(v) else v
     if name == "liste":
-        return "\n".join(f"- {to_text(x)}" for x in as_items(v))
+        return "\n".join(f"- {to_text(x, lang)}" for x in as_items(v))
     if name == "numerote":
-        return "\n".join(f"{i}. {to_text(x)}" for i, x in enumerate(as_items(v), 1))
+        return "\n".join(f"{i}. {to_text(x, lang)}" for i, x in enumerate(as_items(v), 1))
     if name == "puces":
-        return "\n".join(arg.replace("@", to_text(x)) for x in as_items(v))
+        return "\n".join(arg.replace("@", to_text(x, lang)) for x in as_items(v))
     if name == "embed":
         if opts.get("link_style") == "markdown":
             return "\n".join(f"![]({x})" for x in as_items(v))
@@ -140,12 +143,12 @@ def apply_filter(v, flt: str, ctx: dict, opts: dict):
             key, _, label = pair.partition("=")
             val = (v or {}).get(key.strip()) if isinstance(v, dict) else None
             if not empty(val):
-                out.append(f"- **{label.strip() or key.strip()}**{sep}{to_text(val)}")
+                out.append(f"- **{label.strip() or key.strip()}**{sep}{to_text(val, lang)}")
         return "\n".join(out)
     if name == "minutes":
-        return fmt_minutes(v)
+        return fmt_minutes(v, lang)
     if name == "bloc":
-        code = to_text(v)
+        code = to_text(v, lang)
         longest = max((len(m) for m in re.findall(r"`+", code)), default=0)
         fence = "`" * max(3, longest + 1)
         return f"{fence}{arg.strip()}\n{code}\n{fence}"
@@ -154,6 +157,7 @@ def apply_filter(v, flt: str, ctx: dict, opts: dict):
 
 def evaluate(tree, ctx: dict, opts: dict) -> str:
     out = []
+    lang = opts.get("lang", "en")
     for node in tree:
         if isinstance(node, str):
             out.append(node)
@@ -161,7 +165,7 @@ def evaluate(tree, ctx: dict, opts: dict) -> str:
             v = lookup(ctx, node[1])
             for flt in node[2]:
                 v = apply_filter(v, flt, ctx, opts)
-            out.append(to_text(v))
+            out.append(to_text(v, lang))
         else:  # if
             cond = node[1]
             neg = cond.startswith("!")

@@ -179,6 +179,7 @@ Les détails techniques (les commandes complètes, le schéma des fiches, les r�
 - `reference/extraction-schema.md` : ce que contient chaque fiche.
 - `reference/configuration.md` : tous les réglages possibles.
 - `scripts/` : les outils, un par étape.
+- `tests/` : la suite de tests — `python3 -m unittest discover -s tests -t .`
 
 ## Feuille de route
 

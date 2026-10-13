@@ -4,7 +4,7 @@
   "_root_default": "~/Documents/Obsidian",
   "_review_default": "OpenCarnet/to-review",
   "link_style": "wikilink",
-  "index": { "scan_dir": "OpenCarnet" },
+  "index": { "scan_dir": "" },
   "default_theme": "general",
   "ai_themes": ["tech"],
   "themes": {

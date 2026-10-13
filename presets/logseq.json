@@ -4,7 +4,7 @@
   "_root_default": "~/Documents/logseq",
   "_review_default": "pages",
   "link_style": "wikilink",
-  "index": { "scan_dir": "pages" },
+  "index": { "scan_dir": "" },
   "default_theme": "general",
   "ai_themes": ["tech"],
   "themes": {

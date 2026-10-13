@@ -4,7 +4,7 @@
   "_root_default": "~/Documents/OpenCarnet",
   "_review_default": "to-review",
   "link_style": "markdown",
-  "index": { "scan_dir": "." },
+  "index": { "scan_dir": "" },
   "default_theme": "general",
   "ai_themes": ["tech"],
   "themes": {

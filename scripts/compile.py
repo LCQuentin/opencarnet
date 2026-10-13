@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import io
 import json
 import os
@@ -67,6 +68,8 @@ MESSAGES = {
         "bad_output": "output.format \"{fmt}\" unknown — use \"markdown\", \"csv\" or \"jsonl\".",
         "nothing": "nothing to file.",
         "ignored": "ignored (type_contenu={tc}): {name}",
+        "untitled": "Untitled",
+        "outside_root": "destination {path} is outside the root — sent to review.",
         "duplicate": "duplicate -> merge ({status}): {path}",
         "src_present": "source already present",
         "src_added": "source added",
@@ -107,6 +110,8 @@ MESSAGES = {
         "bad_output": "output.format « {fmt} » inconnu — utilisez « markdown », « csv » ou « jsonl ».",
         "nothing": "aucune extraction exploitable.",
         "ignored": "ignoré (type_contenu={tc}) : {name}",
+        "untitled": "Sans titre",
+        "outside_root": "destination {path} hors de la racine — envoyée en relecture.",
         "duplicate": "doublon -> fusion ({status}) : {path}",
         "src_present": "source déjà présente",
         "src_added": "source ajoutée",
@@ -191,14 +196,50 @@ def load_formats(cfg: dict) -> dict:
 
 
 def norm(s: str) -> str:
-    s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
-    return re.sub(r"[^a-z0-9]+", "", s.lower())
+    """Normalisation Unicode : accents supprimés, mais lettres non latines
+    (japonais, cyrillique, arabe…) conservées — sinon tout titre non latin
+    se réduirait à une chaîne vide et toutes ces fiches fusionneraient."""
+    s = unicodedata.normalize("NFKD", str(s))
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    return re.sub(r"[\W_]+", "", s.casefold(), flags=re.UNICODE)
 
 
-def safe_name(s: str) -> str:
+def dedup_key(s: str) -> str:
+    """Clé de dédoublonnage. Repli sur un hash si la normalisation ne laisse
+    rien (titre fait uniquement de ponctuation/emoji) : un titre ne doit jamais
+    se réduire à la même clé vide qu'un autre."""
+    n = norm(s)
+    return n if n else "h" + hashlib.sha1(str(s).encode("utf-8")).hexdigest()[:12]
+
+
+def within_root(root: Path, p: Path) -> bool:
+    """Vrai si `p` est `root` ou se trouve sous `root`. Comparaison **lexicale**
+    (aucune résolution de liens symboliques : un sous-dossier iCloud qui pointe
+    ailleurs reste « dedans »), qui bloque `../` et les chemins absolus fournis
+    par l'IA via `dossier_cible`."""
+    rr = os.path.normpath(os.path.abspath(str(root)))
+    rp = os.path.normpath(os.path.abspath(str(p)))
+    return rp == rr or rp.startswith(rr.rstrip(os.sep) + os.sep)
+
+
+def safe_name(s: str, lang: str = "en") -> str:
     # caractères interdits dans un nom de fichier ou cassant un [[wikilink]] / tableau
-    s = re.sub(r'[/\\:|#^\[\]*"<>?]', "-", s).strip()
-    return re.sub(r"\s+", " ", s) or "Sans titre"
+    s = re.sub(r'[/\\:|#^\[\]*"<>?]', "-", str(s)).strip()
+    s = re.sub(r"\s+", " ", s)
+    return s or T(lang, "untitled")
+
+
+def has_substance(ext: dict) -> bool:
+    """Contenu réel = résumé, substance technique, citation ou données de format.
+    Un simple lien (`liens` sans rien d'autre) n'en est pas : une extraction
+    « lien seul » (LinkedIn) part en relecture, quelle que soit `confiance`."""
+    st = ext.get("substance_technique") or {}
+    st_has = isinstance(st, dict) and any(v not in (None, "", [], {}) for v in st.values())
+    data = ext.get("donnees") or {}
+    data_has = isinstance(data, dict) and any(v not in (None, "", [], {}) for v in data.values())
+    return bool(st_has or data_has
+                or str(ext.get("resume") or "").strip()
+                or str(ext.get("citation_cle") or "").strip())
 
 
 YAML_RETYPED = re.compile(
@@ -207,9 +248,18 @@ YAML_RETYPED = re.compile(
 
 
 def yaml_str(v: str) -> str:
-    if v == "" or re.search(r"[:#\[\]{},&*!|>'\"%@`]", v) or v != v.strip() or YAML_RETYPED.match(v):
-        return '"' + v.replace("\\", "\\\\").replace('"', '\\"') + '"'
-    return v
+    s = str(v)
+    # à citer : vide, espaces autour, saut de ligne, retypable, caractère
+    # sensible, ou commence par un indicateur YAML (- : ? en tête de valeur)
+    needs = (s == "" or s != s.strip() or "\n" in s or "\r" in s
+             or YAML_RETYPED.match(s)
+             or re.search(r"[:#\[\]{},&*!|>'\"%@`]", s)
+             or s[0] in "-?:")
+    if not needs:
+        return s
+    esc = (s.replace("\\", "\\\\").replace('"', '\\"')
+             .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t"))
+    return '"' + esc + '"'
 
 
 def yaml_scalar(v) -> str:
@@ -268,7 +318,8 @@ def resolve(ext: dict, cfg: dict):
     tags += rule.get("tags", [])
     if rule.get("tags_if_ai") and is_ai:
         tags += rule["tags_if_ai"]
-    return {"family": family, "categorie": cat, "folder": folder, "is_ai": is_ai, "tags": tags}
+    return {"family": family, "categorie": cat, "folder": folder if folder not in (None, "") else ".",
+            "is_ai": is_ai, "tags": tags}
 
 
 # ---------- contexte & corps de fiche (modèles) ----------
@@ -322,7 +373,9 @@ def load_template(name: str, cfg: dict) -> str:
 def build_body(ext: dict, route: dict, ctx: dict, cfg: dict) -> str:
     fmt = cfg["formats"].get(ext.get("format") or "")
     name = (fmt or {}).get("template") or (f"{ext['format']}.md" if fmt else f"{route['family']}.md")
-    return templating.render(load_template(name, cfg), ctx, link_style=cfg.get("link_style", "wikilink"))
+    lang = cfg.get("language") if cfg.get("language") in SUPPORTED_LANGS else "en"
+    return templating.render(load_template(name, cfg), ctx,
+                             link_style=cfg.get("link_style", "wikilink"), lang=lang)
 
 
 # ---------- frontmatter (100% config) ----------
@@ -519,21 +572,47 @@ def build_prompt(cfg: dict) -> str:
 # ---------- dédoublonnage ----------
 
 def scan_index(root: Path, dirs: list[str]) -> dict:
-    """Nom normalisé -> fiche existante. Pas de dédoublonnage par URL seule :
-    plusieurs substances d'une même source donnent légitimement plusieurs fiches."""
+    """Clé de nom normalisée -> fiche existante. Pas de dédoublonnage par URL
+    seule : plusieurs substances d'une même source donnent légitimement
+    plusieurs fiches."""
     by_name = {}
     for d in dirs:
+        if d in ("", "."):
+            continue
         base = root / d
         if base.is_dir():
             for p in base.rglob("*.md"):
-                by_name.setdefault(norm(p.stem), p)
+                by_name.setdefault(dedup_key(p.stem), p)
     return by_name
+
+
+def managed_dirs(cfg: dict) -> list[str]:
+    """Dossiers que l'engine est susceptible d'écrire. Seuls ceux-là (plus un
+    `index.scan_dir` explicite) sont scannés pour le dédoublonnage — jamais tout
+    `root` — pour ne pas fusionner avec des notes qui ne sont pas d'OpenCarnet."""
+    dirs = [cfg.get("review_dir") or cfg.get("inbox_dir") or "to-review"]
+    for r in (cfg.get("routes") or {}).values():
+        if isinstance(r, dict):
+            for k in ("folder", "folder_if_ai"):
+                if r.get(k):
+                    dirs.append(str(r[k]))
+    dirs += [str(v) for v in (cfg.get("themes") or {}).values()]
+    for f in (cfg.get("formats") or {}).values():
+        if isinstance(f, dict) and f.get("folder"):
+            dirs.append(str(f["folder"]))
+    return [d for d in dedup(dirs) if d not in ("", ".")]
+
+
+def _url_present(text: str, src: str) -> bool:
+    """Vrai si l'URL apparaît comme jeton entier (évite que …/status/1 soit
+    considéré présent parce que …/status/12 l'est déjà)."""
+    return bool(re.search(r"(?<![A-Za-z0-9_])" + re.escape(src) + r"(?![A-Za-z0-9_])", text))
 
 
 def merge_source(p: Path, src: str, lang: str) -> str:
     """Fusion non destructive : ajoute la source en fin de fiche si elle est absente."""
     text = p.read_text(encoding="utf-8")
-    if not src or src in text:
+    if not src or _url_present(text, src):
         return "present"
     p.write_text(text.rstrip() + "\n" + T(lang, "dup_source_line", src=src) + "\n", encoding="utf-8")
     return "added"
@@ -645,27 +724,39 @@ def load_table(path: Path, fmt: str) -> list[dict]:
     if fmt == "jsonl":
         rows = []
         for line in text.splitlines():
-            if line.strip():
-                try:
-                    rows.append(json.loads(line))
-                except json.JSONDecodeError:
-                    pass
+            if not line.strip():
+                continue
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                rows.append({"_raw": line})  # ligne illisible : conservée telle quelle
         return rows
     return [dict(r) for r in csv.DictReader(io.StringIO(text))]
 
 
-def merge_row_source(row: dict, src: str) -> str:
+def source_column(cols: dict) -> str:
+    """Nom de la colonne qui porte l'URL source (celle qui utilise
+    `{source_url}`) ; repli sur « source ». Aucun nom codé en dur."""
+    for k, spec in cols.items():
+        val = spec.get("value") if isinstance(spec, dict) else spec
+        if isinstance(val, str) and "{source_url}" in val:
+            return k
+    return "source"
+
+
+def merge_row_source(row: dict, src: str, col: str = "source") -> str:
     if not src:
         return "present"
-    cur = row.get("source", "")
+    cur = row.get(col, "")
     if isinstance(cur, list):
         if src in cur:
             return "present"
         cur.append(src)
         return "added"
-    if src in str(cur):
+    parts = [p.strip() for p in str(cur).split(",") if p.strip()]
+    if src in parts:
         return "present"
-    row["source"] = f"{str(cur).strip()}, {src}" if str(cur).strip() else src
+    row[col] = ", ".join(parts + [src])
     return "added"
 
 
@@ -674,7 +765,10 @@ def write_table(path: Path, fmt: str, rows: list[dict], cols: dict, list_sep: st
     if fmt == "jsonl":
         with path.open("w", encoding="utf-8") as f:
             for r in rows:
-                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+                if set(r.keys()) == {"_raw"}:
+                    f.write(r["_raw"] + "\n")  # ligne d'origine, préservée
+                else:
+                    f.write(json.dumps(r, ensure_ascii=False) + "\n")
         return
     fieldnames = list(cols.keys())
     for r in rows:
@@ -828,7 +922,7 @@ def main() -> int:
     if not args.analysis:
         ap.error(T(lang, "analysis_required"))
     root = Path(os.path.expanduser(str(cfg.get("root", "."))))
-    scan_dir = (cfg.get("index") or {}).get("scan_dir") or "."
+    scan_dir = (cfg.get("index") or {}).get("scan_dir") or ""
     inbox_dir = cfg.get("review_dir") or cfg.get("inbox_dir") or "to-review"
     moc_cfg = cfg.get("moc") or {}
     out_fmt, out_cfg = output_config(cfg)
@@ -852,34 +946,41 @@ def main() -> int:
 
     if tabular:
         cols = output_columns(cfg, out_cfg)
+        src_col = source_column(cols)
         list_sep = out_cfg.get("list_sep", "; ")
         want_body = bool(out_cfg.get("body"))
         file_path = root / (out_cfg.get("file") or f"opencarnet.{out_fmt}")
         review_path = root / (out_cfg.get("review_file") or f"to-review.{out_fmt}")
         rows = {False: load_table(file_path, out_fmt), True: load_table(review_path, out_fmt)}
-        by_key = {low: {norm(r.get("nom", "")): r for r in rows[low]} for low in (False, True)}
+        by_key = {low: {dedup_key(r.get("nom", "")): r for r in rows[low] if "_raw" not in r}
+                  for low in (False, True)}
         for ext in exts:
             route = resolve(ext, cfg)
             if route is None:
                 print("[i] " + T(lang, "ignored", tc=ext.get("type_contenu"), name=ext.get("nom")))
                 skipped += 1
                 continue
-            name = safe_name(ext.get("nom") or "Sans titre")
-            low = (ext.get("confiance") == "basse") or (not src)
+            name = safe_name(ext.get("nom") or "", lang)
+            low = (ext.get("confiance") == "basse") or (not src) or not has_substance(ext)
             fmt = cfg["formats"].get(ext.get("format") or "") or {}
             if fmt.get("folder") and not ext.get("dossier_cible"):
                 route["folder"] = fmt["folder"]
+            if not low and not within_root(root, root / route["folder"]):
+                print("[!] " + T(lang, "outside_root", path=route["folder"]), file=sys.stderr)
+                low = True
+            if low:
+                route["folder"] = inbox_dir
             ctx = build_context(ext, route, src, cfg, today, offline=args.offline or args.dry_run)
             row = build_row(ext, route, ctx, cfg, cols, name,
                             build_body(ext, route, ctx, cfg) if want_body else "")
-            key = norm(name)
+            key = dedup_key(name)
             dest = review_path if low else file_path
             existing = by_key[low].get(key)
             if existing:
                 if args.dry_run:
                     status = T(lang, "dry")
                 else:
-                    status = T(lang, "src_present" if merge_row_source(existing, src) == "present"
+                    status = T(lang, "src_present" if merge_row_source(existing, src, src_col) == "present"
                                  else "src_added")
                 print("[~] " + T(lang, "duplicate", status=status, path=dest))
                 updated += 1
@@ -900,7 +1001,8 @@ def main() -> int:
                 cfg=cfg.get("_path")))
         return 0
 
-    by_name = scan_index(root, dedup([scan_dir, inbox_dir]))
+    extra = [] if scan_dir in ("", ".") else [scan_dir]
+    by_name = scan_index(root, dedup(managed_dirs(cfg) + extra))
     for ext in exts:
         route = resolve(ext, cfg)
         if route is None:
@@ -908,14 +1010,20 @@ def main() -> int:
             skipped += 1
             continue
 
-        name = safe_name(ext.get("nom") or "Sans titre")
-        low_conf = (ext.get("confiance") == "basse") or (not src)
+        name = safe_name(ext.get("nom") or "", lang)
+        low_conf = (ext.get("confiance") == "basse") or (not src) or not has_substance(ext)
         fmt = cfg["formats"].get(ext.get("format") or "") or {}
         if fmt.get("folder") and not ext.get("dossier_cible"):
             route["folder"] = fmt["folder"]
+        if not low_conf and not within_root(root, root / route["folder"]):
+            print("[!] " + T(lang, "outside_root", path=route["folder"]), file=sys.stderr)
+            low_conf = True
+        if low_conf:
+            route["folder"] = inbox_dir
         folder = root / (inbox_dir if low_conf else route["folder"])
         dest = folder / f"{name}.md"
-        existing = by_name.get(norm(name)) or (dest if dest.exists() else None)
+        key = dedup_key(name)
+        existing = by_name.get(key) or (dest if dest.exists() else None)
         if existing:
             if args.dry_run:
                 status = T(lang, "dry")
@@ -928,14 +1036,14 @@ def main() -> int:
         ctx = build_context(ext, route, src, cfg, today, offline=args.offline or args.dry_run)
         fm = build_frontmatter(ext, route, ctx, cfg)
         content = (fm + "\n" if fm else "") + build_body(ext, route, ctx, cfg)
-
+        by_name[key] = dest  # enregistré même en essai à blanc (dédoublonnage intra-lot)
         if args.dry_run:
             print(f"[dry] {dest}\n{content[:500]}...\n")
+            created += 1
             continue
 
         folder.mkdir(parents=True, exist_ok=True)
         dest.write_text(content, encoding="utf-8")
-        by_name[norm(name)] = dest  # protège des homonymes dans la même analyse
         status = T(lang, "created")
         if not low_conf and moc_cfg:
             moc_rel = moc_cfg.get("prompt" if route["family"] == "prompt" else "resource")

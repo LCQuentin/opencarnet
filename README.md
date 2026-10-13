@@ -179,6 +179,7 @@ The technical details (full commands, the note format, advanced settings) are he
 - `reference/extraction-schema.md`: what each note contains.
 - `reference/configuration.md`: every available setting.
 - `scripts/`: the tools, one per step.
+- `tests/`: the test suite — `python3 -m unittest discover -s tests -t .`.
 
 ## Roadmap
 

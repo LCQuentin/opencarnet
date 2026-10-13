@@ -109,12 +109,14 @@ def main() -> int:
     ap.add_argument("--out", default="items.csv", help="CSV de sortie")
     ap.add_argument("--include-own-tweets", action="store_true",
                     help="inclure aussi vos propres posts (tweets.js)")
+    ap.add_argument("--language", choices=("en", "fr"), default=None,
+                    help="messages (en | fr; default: config/OPENCARNET_LANG/system locale)")
     args = ap.parse_args()
+    _pivot.set_lang(args.language or _pivot.default_lang())
 
     root = Path(args.export).expanduser()
     if not root.exists():
-        print(f"[!] introuvable : {root}", file=sys.stderr)
-        return 1
+        return _pivot.fail(_pivot.t("not_found", path=root))
 
     all_items, files_seen = [], 0
     wanted = {"like", "bookmark"} | ({"tweet"} if args.include_own_tweets else set())

@@ -100,11 +100,14 @@ def main() -> int:
     ap.add_argument("--out", default="items.csv", help="CSV de sortie")
     ap.add_argument("--include-likes", action="store_true",
                     help="inclure aussi vos « J'aime » (signal faible, volume élevé)")
+    ap.add_argument("--language", choices=("en", "fr"), default=None,
+                    help="messages (en | fr; default: config/OPENCARNET_LANG/system locale)")
     args = ap.parse_args()
+    _pivot.set_lang(args.language or _pivot.default_lang())
 
     root = Path(args.export).expanduser()
     if not root.exists():
-        return _pivot.fail(f"introuvable : {root}")
+        return _pivot.fail(_pivot.t("not_found", path=root))
 
     all_items, files_seen = [], 0
     for name, data in _pivot.iter_members(root, lambda n: n.lower().endswith(".json")):

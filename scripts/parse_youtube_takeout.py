@@ -81,11 +81,14 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("export", help="dossier Takeout ou .zip")
     ap.add_argument("--out", default="items.csv", help="CSV de sortie")
+    ap.add_argument("--language", choices=("en", "fr"), default=None,
+                    help="messages (en | fr; default: config/OPENCARNET_LANG/system locale)")
     args = ap.parse_args()
+    _pivot.set_lang(args.language or _pivot.default_lang())
 
     root = Path(args.export).expanduser()
     if not root.exists():
-        return _pivot.fail(f"introuvable : {root}")
+        return _pivot.fail(_pivot.t("not_found", path=root))
 
     all_items, files_seen = [], 0
     for name, data in _pivot.iter_members(root, lambda n: n.lower().endswith(".csv")):
@@ -97,8 +100,7 @@ def main() -> int:
 
     rows = _pivot.dedup_items(all_items)
     if files_seen == 0:
-        print("[i] aucun CSV de playlist trouvé (Takeout : cochez « YouTube and "
-              "YouTube Music » → playlists).", file=sys.stderr)
+        print(_pivot.t("no_playlist"), file=sys.stderr)
     _pivot.write_items(rows, Path(args.out), files_seen)
     return 0
 

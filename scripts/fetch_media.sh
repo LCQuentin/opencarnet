@@ -8,29 +8,33 @@
 #   <id>.txt        transcript issu des sous-titres (mode --subs)
 #
 # Usage :
-#   bash fetch_media.sh "<url>" ./work [--cookies CHEMIN] [--frames N] [--subs] [--no-frames]
+#   bash fetch_media.sh "<url>" ./work [--cookies CHEMIN] [--frames N] [--subs] [--no-frames] [--sub-langs LISTE]
 #
 # --subs : vidéos longues (YouTube…) — ne télécharge pas la vidéo : récupère les
 #          sous-titres (auto ou manuels) et écrit <id>.txt. Évite Whisper.
 # --no-frames : télécharge la vidéo mais saute la planche de frames.
+# --sub-langs : langues de sous-titres pour --subs (défaut "en.*,fr.*" ; "all,-live_chat"
+#          pour tout prendre).
 #
 # Les cookies (export Netscape du navigateur connecté) sont nécessaires pour
 # beaucoup de reels Instagram. Sans eux, yt-dlp ne fonctionne que sur du public.
 set -euo pipefail
 
-URL="${1:?usage: fetch_media.sh <url> <outdir> [--cookies f] [--frames N] [--subs] [--no-frames]}"
+URL="${1:?usage: fetch_media.sh <url> <outdir> [--cookies f] [--frames N] [--subs] [--no-frames] [--sub-langs L]}"
 OUT="${2:?outdir manquant}"
 shift 2 || true
 
 COOKIES=""
 NFRAMES=12
 SUBS=0
+SUBLANGS="${OPENCARNET_SUB_LANGS:-en.*,fr.*}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --cookies) COOKIES="$2"; shift 2 ;;
     --frames) NFRAMES="$2"; shift 2 ;;
     --subs) SUBS=1; shift ;;
     --no-frames) NFRAMES=0; shift ;;
+    --sub-langs) SUBLANGS="$2"; shift 2 ;;
     *) echo "option inconnue: $1" >&2; exit 2 ;;
   esac
 done
@@ -54,7 +58,7 @@ if [[ "$SUBS" == "1" ]]; then
     --no-playlist \
     --skip-download \
     --write-info-json --write-thumbnail \
-    --write-subs --write-auto-subs --sub-langs "en.*,fr.*" --convert-subs srt \
+    --write-subs --write-auto-subs --sub-langs "$SUBLANGS" --convert-subs srt \
     --print-to-file id "$IDFILE" \
     -o "$OUT/%(id)s.%(ext)s" \
     "$URL"

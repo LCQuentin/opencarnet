@@ -19,13 +19,95 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import os
 import re
 import sys
 import zipfile
 from pathlib import Path
+from urllib.parse import urlparse
 
 PIVOT_COLS = ["id", "url", "auteur", "handle", "date_source", "canal",
               "legende", "hashtags", "collection"]
+
+_LANG = "en"
+_MSG = {
+    "en": {
+        "not_found": "not found: {path}",
+        "ignore_file": "[!] ignoring {path}: {err}",
+        "no_playlist": "[i] no playlist CSV found (Takeout: tick \"YouTube and YouTube "
+                       "Music\" -> playlists).",
+        "no_saved_items": "[i] \"Saved Items.csv\" not found (LinkedIn: tick \"Saved "
+                          "Items\" in Download your data).",
+        "linkedin_note": "[i] LinkedIn: export = links only -> notes to review (see docstring).",
+        "recap_head": "[ok] {n} items from {files} file(s) -> {out}",
+        "recap_row": "     {collection}: {count}",
+        "recap_urls": "     {with_url} with URL, {without_url} without URL (to complete).",
+        "recap_sidecar": "     sidecar: {path}",
+    },
+    "fr": {
+        "not_found": "introuvable : {path}",
+        "ignore_file": "[!] fichier ignoré {path} : {err}",
+        "no_playlist": "[i] aucun CSV de playlist trouvé (Takeout : cochez « YouTube and "
+                       "YouTube Music » -> playlists).",
+        "no_saved_items": "[i] « Saved Items.csv » introuvable (LinkedIn : cochez « Saved "
+                          "Items » dans Télécharger vos données).",
+        "linkedin_note": "[i] LinkedIn : export = liens seuls -> fiches à relire (voir docstring).",
+        "recap_head": "[ok] {n} items depuis {files} fichier(s) -> {out}",
+        "recap_row": "     {collection}: {count}",
+        "recap_urls": "     {with_url} avec URL, {without_url} sans URL (à compléter).",
+        "recap_sidecar": "     sidecar : {path}",
+    },
+}
+
+
+def set_lang(lang: str | None) -> None:
+    global _LANG
+    if lang in _MSG:
+        _LANG = lang
+
+
+def _config_lang() -> str | None:
+    """Langue lue dans la config, **même ordre que compile.load_config**."""
+    candidates = [
+        os.environ.get("OPENCARNET_CONFIG", ""),
+        os.environ.get("INSTAGRAM_SAVED_CONFIG", ""),  # ancien nom, conservé
+        str(Path.home() / ".config" / "opencarnet" / "config.json"),
+        str(Path(__file__).resolve().parent.parent / "config.example.json"),
+    ]
+    for c in candidates:
+        if not c:
+            continue
+        p = Path(c).expanduser()
+        if not p.exists():
+            continue
+        try:
+            lang = json.loads(p.read_text(encoding="utf-8")).get("language")
+        except (OSError, json.JSONDecodeError):
+            continue
+        if lang in _MSG:
+            return lang
+    return None
+
+
+def default_lang() -> str:
+    """Langue par défaut des outils sans config : $OPENCARNET_LANG, sinon la
+    langue de la config (comme compile.load_config, y compris
+    ~/.config/opencarnet/config.json), sinon la locale système."""
+    env = os.environ.get("OPENCARNET_LANG")
+    if env in _MSG:
+        return env
+    lang = _config_lang()
+    if lang:
+        return lang
+    for var in ("LC_ALL", "LC_MESSAGES", "LANG"):
+        if (os.environ.get(var) or "").lower().startswith("fr"):
+            return "fr"
+    return "en"
+
+
+def t(key: str, **kw) -> str:
+    text = (_MSG.get(_LANG) or _MSG["en"]).get(key) or _MSG["en"].get(key, key)
+    return text.format(**kw) if kw else text
 
 # --- URL shapes -------------------------------------------------------------
 
@@ -84,28 +166,45 @@ def canonical_linkedin(url: str) -> str:
     return f"https://www.linkedin.com/{m.group(1).rstrip('/')}" if m else ""
 
 
+def _with_scheme(url: str) -> str:
+    """Adds `https://` when a pasted link omits it (manual link lists)."""
+    u = (url or "").strip()
+    return u if not u or "://" in u else "https://" + u
+
+
 def canonical_url(url: str) -> str:
     """Apply every known canonicalizer; fall back to the trimmed URL."""
+    u = _with_scheme(url)
     for fn in (canonical_instagram, canonical_x, canonical_tiktok, canonical_youtube,
                canonical_linkedin):
-        c = fn(url)
+        c = fn(u)
         if c:
             return c
-    return (url or "").strip()
+    return u
+
+
+def _host_is(host: str, domain: str) -> bool:
+    return host == domain or host.endswith("." + domain)
 
 
 def canal_from_url(url: str) -> str:
-    """Platform tag for the `canal` column, derived from the URL domain."""
-    u = (url or "").lower()
-    if "instagram.com" in u:
-        return "reel" if "/reel" in u else "post"
-    if "tiktok.com" in u:
+    """Platform tag for the `canal` column, from the URL **host** (not a
+    substring: `dropbox.com`/`netflix.com` must not match `x.com`). Tolerates a
+    missing scheme (`instagram.com/reel/…`)."""
+    u = _with_scheme(url)
+    try:
+        host = (urlparse(u).hostname or "").lower()
+    except ValueError:
+        host = ""
+    if _host_is(host, "instagram.com"):
+        return "reel" if "/reel" in u.lower() else "post"
+    if _host_is(host, "tiktok.com"):
         return "tiktok"
-    if "youtube.com" in u or "youtu.be" in u:
+    if _host_is(host, "youtube.com") or host == "youtu.be":
         return "youtube"
-    if "twitter.com" in u or "x.com" in u:
+    if _host_is(host, "x.com") or _host_is(host, "twitter.com"):
         return "tweet"
-    if "linkedin.com" in u:
+    if _host_is(host, "linkedin.com"):
         return "linkedin"
     return ""
 
@@ -135,18 +234,28 @@ def make_item(url: str = "", *, auteur: str = "", handle: str = "", date_source:
 
 
 def iso_date(value) -> str:
-    """Best-effort ISO `YYYY-MM-DD` from a string/timestamp."""
+    """Best-effort ISO `YYYY-MM-DD` from a string or timestamp. Handles Unix
+    seconds and **milliseconds** (a 13-digit stamp used to overflow the year
+    and crash the whole export)."""
     import datetime as _dt
+    ts = None
     if isinstance(value, (int, float)) and value:
-        return _dt.datetime.fromtimestamp(int(value), tz=_dt.timezone.utc).strftime("%Y-%m-%d")
-    if isinstance(value, str):
+        ts = float(value)
+    elif isinstance(value, str):
         v = value.strip()
         if v.isdigit() and len(v) >= 9:
-            return _dt.datetime.fromtimestamp(int(v), tz=_dt.timezone.utc).strftime("%Y-%m-%d")
-        m = re.match(r"\d{4}-\d{2}-\d{2}", v)
-        if m:
-            return m.group(0)
-    return ""
+            ts = float(v)
+        else:
+            m = re.match(r"\d{4}-\d{2}-\d{2}", v)
+            return m.group(0) if m else ""
+    if ts is None:
+        return ""
+    if ts > 1e12:  # millisecondes
+        ts /= 1000.0
+    try:
+        return _dt.datetime.fromtimestamp(ts, tz=_dt.timezone.utc).strftime("%Y-%m-%d")
+    except (OverflowError, OSError, ValueError):
+        return ""
 
 
 def dedup_items(items: list[dict]) -> list[dict]:
@@ -184,11 +293,11 @@ def recap(rows: list[dict], files_seen: int, out: Path) -> None:
     for r in rows:
         by_collection[r.get("collection", "")] = by_collection.get(r.get("collection", ""), 0) + 1
     with_url = sum(1 for r in rows if r.get("url"))
-    print(f"[ok] {len(rows)} items depuis {files_seen} fichier(s) -> {out}")
+    print(t("recap_head", n=len(rows), files=files_seen, out=out))
     for k, v in sorted(by_collection.items()):
-        print(f"     {k}: {v}")
-    print(f"     {with_url} avec URL, {len(rows) - with_url} sans URL (à compléter).")
-    print(f"     sidecar : {out.with_suffix('.json')}")
+        print(t("recap_row", collection=k, count=v))
+    print(t("recap_urls", with_url=with_url, without_url=len(rows) - with_url))
+    print(t("recap_sidecar", path=out.with_suffix(".json")))
 
 
 def write_items(rows: list[dict], out: Path, files_seen: int = 0) -> int:

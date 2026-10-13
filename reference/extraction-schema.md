@@ -61,7 +61,7 @@ One `analyses/<id>.json` per bundle:
       "liens": ["https://www.filatov.design"],
       "illustrations": ["_images/02 Apple-studies.jpg"],
       "themes": ["tech-ia"],
-      "tags_extra": ["🤖/prompt", "🤖/ia"],
+      "tags_extra": ["prompt"],
       "confiance": "haute"
     }
   ]
@@ -86,7 +86,7 @@ One `analyses/<id>.json` per bundle:
 | `format` | no | one of the configured formats (`recipe`, `place`…), else empty → standard note |
 | `donnees` | with `format` | object with that format's fields (see `formats.md`); computed values (GPS, map link, total time…) are left out — the engine adds them |
 | `tags_extra` | no | extra tags added to the base tags |
-| `confiance` | yes | `haute` · `moyenne` · `basse` — `basse` ⇒ inbox |
+| `confiance` | yes | `haute` · `moyenne` · `basse` — `basse` ⇒ review. An extraction with **no content** (empty `resume`, `substance_technique`, `citation_cle` and format `donnees` — a bare `liens` alone is not content) also goes to `review_dir`, whatever `confiance` says. |
 
 ## Normalization prompt
 
@@ -106,5 +106,6 @@ Apply it per bundle, with the frame sheet in view when available.
 - [ ] No `themes` outside the taxonomy.
 - [ ] Custom fields empty when unsure.
 - [ ] `confiance: basse` ⇒ destination the configured `review_dir`.
+- [ ] An extraction with no content (bare link, empty `resume`) ⇒ `review_dir`.
 - [ ] `format` set only when the substance really is a recipe / place / …; no invented quantity, address or price.
 - [ ] An item already present (same normalized `nom`) will be merged, not duplicated.

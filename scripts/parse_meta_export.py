@@ -204,12 +204,14 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("export", help="dossier, fichier .json, ou .zip de l'export Meta")
     ap.add_argument("--out", default="items.csv", help="CSV de sortie")
+    ap.add_argument("--language", choices=("en", "fr"), default=None,
+                    help="messages (en | fr; default: config/OPENCARNET_LANG/system locale)")
     args = ap.parse_args()
+    _pivot.set_lang(args.language or _pivot.default_lang())
 
     root = Path(args.export).expanduser()
     if not root.exists():
-        print(f"[!] introuvable : {root}", file=sys.stderr)
-        return 1
+        return _pivot.fail(_pivot.t("not_found", path=root))
 
     all_items, files_seen = [], 0
     for name, text in iter_sources(root):
@@ -220,7 +222,7 @@ def main() -> int:
             else:
                 all_items += parse_html(text)
         except Exception as exc:  # noqa: BLE001
-            print(f"[!] ignore {name} : {exc}", file=sys.stderr)
+            print(_pivot.t("ignore_file", path=name, err=exc), file=sys.stderr)
 
     rows = _pivot.dedup_items(all_items)
     out = Path(args.out).expanduser()

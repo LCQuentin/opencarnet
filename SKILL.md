@@ -131,7 +131,8 @@ python3 scripts/parse_linkedin_export.py "~/Downloads/linkedin-archive.zip" --ou
 
 All modes write the same pivot (`items.csv` + `items.json`), so steps 2–5 are
 identical whatever the source. Only **save signals** are ingested — no watch
-history, searches, DMs or private data.
+history, searches, DMs or private data. Parsers and `build_bundle.py` accept
+`--language en|fr` (default: your config / `OPENCARNET_LANG` / system locale).
 
 ### 2. Enrich — download + transcribe + read the screen
 
@@ -154,7 +155,8 @@ python3 scripts/transcribe.py ./work/<id>.m4a --out ./work/<id>.txt
 > ```
 >
 > Fall back to the normal download only when no subtitle exists. Add
-> `--no-frames` to skip the frame sheet when it adds nothing.
+> `--no-frames` to skip the frame sheet when it adds nothing, and `--sub-langs`
+> (default `en.*,fr.*`; e.g. `all,-live_chat`) to widen the subtitle languages.
 
 Then **read visually** the generated frame sheet (`<id>_sheet.jpg`) to recover
 on-screen text (tool names, prompts, code, prices, UI). For carousels/posts, use
@@ -242,6 +244,16 @@ The engine:
 
 - **Volume**: process in batches (10–25 items). Validate the schema on 3–5 real
   items before a 200-item batch.
+- **Paths**: the analysis-driven `dossier_cible` is always **confined to `root`**
+  (absolute path or `../` refused → the item goes to review). No AI-provided
+  value can make the engine write outside your notes folder.
+- **Nothing to file**: an extraction with no content — empty `resume`,
+  `substance_technique`, `citation_cle` **and** format `donnees` — goes to
+  `review_dir` even if the analysis claims high confidence. A bare `liens` alone
+  (e.g. a LinkedIn link) is **not** content.
+- **Language**: run the parsers and `build_bundle.py` with `--language fr|en`
+  (or `OPENCARNET_LANG`), matching your config's `language`. The default follows
+  your config (`$OPENCARNET_CONFIG`), then the system locale.
 - **ToS / account**: downloading via an Instagram session is the user's
   responsibility. Never replay a bulk download from an account you don't own.
 - **Copyright**: keep the **link** and a short quote; never copy a paid asset
@@ -270,3 +282,4 @@ The engine:
 | `scripts/build_bundle.py` | caption + transcript + metadata → `bundle.md` |
 | `scripts/compile.py` | Neutral config-driven engine: `--init` setup, writes/dedupes notes + index, `--print-prompt` |
 | `scripts/templating.py` · `scripts/enrich.py` | Template engine · computed values (maps link, geocoding…) |
+| `tests/` | Unit + end-to-end tests: `python3 -m unittest discover -s tests -t .` |
