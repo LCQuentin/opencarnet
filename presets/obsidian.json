@@ -1,0 +1,82 @@
+{
+  "_comment": "Obsidian — wikilinks, an optional index (MOC), imports grouped under 'OpenCarnet/'.",
+  "_tool_label": { "en": "Obsidian", "fr": "Obsidian" },
+  "_root_default": "~/Documents/Obsidian",
+  "_review_default": "OpenCarnet/to-review",
+  "link_style": "wikilink",
+  "index": { "scan_dir": "OpenCarnet" },
+  "default_theme": "general",
+  "ai_themes": ["tech"],
+  "themes": {
+    "general": "OpenCarnet/general",
+    "tech": "OpenCarnet/tech",
+    "business": "OpenCarnet/business",
+    "culture": "OpenCarnet/culture",
+    "lifestyle": "OpenCarnet/lifestyle"
+  },
+  "frontmatter": {
+    "fields": {
+      "tags": { "value": "{tags}", "style": "block" },
+      "category": "{categorie}",
+      "themes": "{themes}",
+      "status": "to-review",
+      "source": "{source_url}",
+      "created": "{today}"
+    },
+    "by_family": {},
+    "base_tags": ["imported"],
+    "default_categorie": "note"
+  },
+  "custom_fields": {},
+  "formats": "formats/{LANG}.json",
+  "geocoding": { "enabled": false, "user_agent": "" },
+  "moc": {
+    "prompt": "OpenCarnet/Index - Prompts.md",
+    "resource": "OpenCarnet/Index - Resources.md",
+    "section": "## Imported"
+  },
+  "routes": {
+    "prompt": {
+      "family": "prompt",
+      "categorie": "prompt",
+      "folder": "OpenCarnet/prompts",
+      "tags": ["prompt"]
+    },
+    "skill": {
+      "family": "prompt",
+      "categorie": "prompt",
+      "folder": "OpenCarnet/prompts",
+      "tags": ["prompt", "skill"]
+    },
+    "modele-ia": {
+      "family": "resource",
+      "categorie": "note",
+      "folder": "OpenCarnet/tech",
+      "tags": ["ai"]
+    },
+    "outil-service": {
+      "family": "resource",
+      "categorie": "note",
+      "folder_if_ai": "OpenCarnet/tech",
+      "tags_if_ai": ["ai"]
+    },
+    "actualite": {
+      "family": "resource",
+      "categorie": "note",
+      "folder_if_ai": "OpenCarnet/tech",
+      "tags_if_ai": ["ai"]
+    },
+    "astuce": {
+      "family": "resource",
+      "categorie": "note"
+    },
+    "inspiration-design": {
+      "family": "resource",
+      "categorie": "note"
+    },
+    "reference": {
+      "family": "resource",
+      "categorie": "note"
+    }
+  }
+}

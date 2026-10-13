@@ -1,0 +1,358 @@
+{
+  "_comment": "Note formats (EN). Each format: when to pick it, its fields (instruction for the AI), its properties, its template (templates/en/<format>.md) and the values computed by the engine.",
+  "recipe": {
+    "when": "A reproducible food or drink recipe (ingredients and/or steps).",
+    "fields": {
+      "servings": {
+        "type": "number",
+        "prompt": "Number of servings, only if stated."
+      },
+      "prep_time": {
+        "type": "minutes",
+        "prompt": "Prep time in minutes, if stated."
+      },
+      "cook_time": {
+        "type": "minutes",
+        "prompt": "Cooking time in minutes, if stated."
+      },
+      "rest_time": {
+        "type": "minutes",
+        "prompt": "Resting / chilling time in minutes, if stated."
+      },
+      "temperature": {
+        "type": "text",
+        "prompt": "Cooking temperature (e.g. \"180 °C, fan\")."
+      },
+      "difficulty": {
+        "type": "text",
+        "prompt": "easy | medium | hard — only if obvious."
+      },
+      "dish_type": {
+        "type": "text",
+        "prompt": "appetizer | starter | main | side | dessert | drink | sauce | breakfast | snack."
+      },
+      "cuisine": {
+        "type": "text",
+        "prompt": "Cuisine if explicit (Italian, Japanese…)."
+      },
+      "diet": {
+        "type": "list",
+        "prompt": "Explicitly compatible diets: vegetarian, vegan, gluten-free, dairy-free, high-protein…"
+      },
+      "ingredients": {
+        "type": "list",
+        "prompt": "One line per ingredient: \"quantity unit ingredient\" (e.g. \"200 g flour\"). Omit the quantity if unreadable — never guess it. Optional group prefix: \"Dough — 200 g flour\"."
+      },
+      "tools": {
+        "type": "list",
+        "prompt": "Equipment needed (tin, blender, air fryer…)."
+      },
+      "steps": {
+        "type": "list",
+        "prompt": "Steps in order, one action each, with times and temperatures when given."
+      },
+      "tips": {
+        "type": "list",
+        "prompt": "Tips, variations, storage."
+      },
+      "nutrition": {
+        "type": "text",
+        "prompt": "Nutrition facts only if given (e.g. \"420 kcal, 55 g protein\")."
+      }
+    },
+    "frontmatter": {
+      "dish_type": "{dish_type}",
+      "servings": "{servings}",
+      "prep_time": "{prep_time}",
+      "cook_time": "{cook_time}",
+      "total_time": "{total_time}",
+      "difficulty": "{difficulty}",
+      "diet": "{diet}"
+    },
+    "enrich": [
+      {
+        "sum": "total_time",
+        "of": [
+          "prep_time",
+          "cook_time",
+          "rest_time"
+        ]
+      }
+    ]
+  },
+  "place": {
+    "when": "A physical place to visit: restaurant, bar, café, hotel, shop, museum, natural site, beach, address…",
+    "fields": {
+      "place_name": {
+        "type": "text",
+        "prompt": "Exact name of the place."
+      },
+      "place_type": {
+        "type": "text",
+        "prompt": "restaurant | bar | café | bakery | hotel | shop | museum | natural site | activity | other."
+      },
+      "address": {
+        "type": "text",
+        "prompt": "Street address only if given."
+      },
+      "city": {
+        "type": "text",
+        "prompt": "City."
+      },
+      "country": {
+        "type": "text",
+        "prompt": "Country."
+      },
+      "budget": {
+        "type": "text",
+        "prompt": "Price range or quoted price (e.g. \"$$\", \"set menu 25 €\")."
+      },
+      "website": {
+        "type": "text",
+        "prompt": "Website or Instagram account of the place, if cited."
+      },
+      "description": {
+        "type": "text",
+        "prompt": "2–3 sentences: the vibe, what makes it notable."
+      },
+      "to_try": {
+        "type": "list",
+        "prompt": "Recommended dishes, products or experiences."
+      },
+      "practical_info": {
+        "type": "list",
+        "prompt": "Booking, opening hours mentioned, access, season…"
+      }
+    },
+    "frontmatter": {
+      "place_type": "{place_type}",
+      "city": "{city}",
+      "country": "{country}",
+      "address": "{address}",
+      "location": "{location}",
+      "gps_precision": "{gps_precision}",
+      "google_maps": "{google_maps}",
+      "budget": "{budget}"
+    },
+    "enrich": [
+      {
+        "maps_link": "google_maps",
+        "query": [
+          "place_name",
+          "address",
+          "city",
+          "country"
+        ],
+        "require_any": [
+          "place_name",
+          "address"
+        ]
+      },
+      {
+        "geocode": "location",
+        "query": [
+          "place_name",
+          "address",
+          "city",
+          "country"
+        ],
+        "fallback": [
+          "address",
+          "city",
+          "country"
+        ],
+        "require": [
+          "city"
+        ],
+        "precision": "gps_precision",
+        "fallback_require": [
+          "address"
+        ],
+        "match": "city",
+        "min_precision": "adresse",
+        "require_any": [
+          "place_name",
+          "address"
+        ]
+      }
+    ]
+  },
+  "web-resource": {
+    "when": "A website, online tool, app, extension, code repository or web article to (re)use.",
+    "fields": {
+      "url": {
+        "type": "text",
+        "prompt": "URL of the site or tool itself (NOT the source post), only if visible or cited."
+      },
+      "resource_type": {
+        "type": "text",
+        "prompt": "tool | website | app | extension | repository | article | video | course."
+      },
+      "pricing": {
+        "type": "text",
+        "prompt": "free | freemium | paid | open source — only if stated."
+      },
+      "price": {
+        "type": "text",
+        "prompt": "Quoted price (e.g. \"$12/month\")."
+      },
+      "platforms": {
+        "type": "list",
+        "prompt": "web, macOS, Windows, iOS, Android, Chrome…"
+      },
+      "features": {
+        "type": "list",
+        "prompt": "What the tool does, one feature each."
+      },
+      "how_to": {
+        "type": "list",
+        "prompt": "Steps to use it, if shown."
+      },
+      "alternatives": {
+        "type": "list",
+        "prompt": "Alternatives cited."
+      }
+    },
+    "frontmatter": {
+      "url": "{url}",
+      "domain": "{domain}",
+      "resource_type": "{resource_type}",
+      "pricing": "{pricing}",
+      "platforms": "{platforms}"
+    },
+    "enrich": [
+      {
+        "domain": "domain",
+        "from": "url"
+      }
+    ]
+  },
+  "book": {
+    "when": "A book recommended or presented.",
+    "fields": {
+      "title": {
+        "type": "text",
+        "prompt": "Exact book title."
+      },
+      "author": {
+        "type": "text",
+        "prompt": "Author(s)."
+      },
+      "year": {
+        "type": "number",
+        "prompt": "Publication year, only if given."
+      },
+      "genre": {
+        "type": "text",
+        "prompt": "Genre (essay, novel, self-help…)."
+      },
+      "isbn": {
+        "type": "text",
+        "prompt": "ISBN only if visible."
+      },
+      "why": {
+        "type": "text",
+        "prompt": "Why read it, in 1–2 sentences."
+      },
+      "key_ideas": {
+        "type": "list",
+        "prompt": "Key ideas presented."
+      }
+    },
+    "frontmatter": {
+      "author": "{author}",
+      "year": "{year}",
+      "genre": "{genre}",
+      "isbn": "{isbn}"
+    }
+  },
+  "film-series": {
+    "when": "A film, series, documentary or show recommended.",
+    "fields": {
+      "title": {
+        "type": "text",
+        "prompt": "Title (and original title if different)."
+      },
+      "work_type": {
+        "type": "text",
+        "prompt": "film | series | documentary | show | anime."
+      },
+      "director": {
+        "type": "text",
+        "prompt": "Director or creator."
+      },
+      "year": {
+        "type": "number",
+        "prompt": "Release year, only if given."
+      },
+      "genre": {
+        "type": "text",
+        "prompt": "Genre."
+      },
+      "platform": {
+        "type": "text",
+        "prompt": "Where to watch it (Netflix, cinema…), if cited."
+      },
+      "pitch": {
+        "type": "text",
+        "prompt": "The pitch in 1–2 sentences, no spoilers."
+      },
+      "why": {
+        "type": "text",
+        "prompt": "Why watch it."
+      }
+    },
+    "frontmatter": {
+      "work_type": "{work_type}",
+      "director": "{director}",
+      "year": "{year}",
+      "genre": "{genre}",
+      "platform": "{platform}"
+    }
+  },
+  "product": {
+    "when": "A physical product to buy or remember (object, furniture, clothing, gadget, cosmetic…).",
+    "fields": {
+      "brand": {
+        "type": "text",
+        "prompt": "Brand."
+      },
+      "model": {
+        "type": "text",
+        "prompt": "Model / reference."
+      },
+      "price": {
+        "type": "text",
+        "prompt": "Quoted price, with currency (e.g. \"$129\")."
+      },
+      "link": {
+        "type": "text",
+        "prompt": "Purchase link or brand website, only if visible."
+      },
+      "pros": {
+        "type": "list",
+        "prompt": "Strengths presented."
+      },
+      "cons": {
+        "type": "list",
+        "prompt": "Limits or flaws mentioned."
+      },
+      "alternatives": {
+        "type": "list",
+        "prompt": "Alternatives cited."
+      }
+    },
+    "frontmatter": {
+      "brand": "{brand}",
+      "price": "{price}",
+      "price_seen_on": "{price_seen_on}",
+      "link": "{link}"
+    },
+    "enrich": [
+      {
+        "stamp": "price_seen_on",
+        "if": "price"
+      }
+    ]
+  }
+}

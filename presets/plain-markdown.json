@@ -1,0 +1,77 @@
+{
+  "_comment": "Plain Markdown folder — portable (standard links, no app-specific index). Safe default.",
+  "_tool_label": { "en": "Plain Markdown folder", "fr": "Dossier Markdown (tout outil)" },
+  "_root_default": "~/Documents/OpenCarnet",
+  "_review_default": "to-review",
+  "link_style": "markdown",
+  "index": { "scan_dir": "." },
+  "default_theme": "general",
+  "ai_themes": ["tech"],
+  "themes": {
+    "general": "general",
+    "tech": "tech",
+    "business": "business",
+    "culture": "culture",
+    "lifestyle": "lifestyle"
+  },
+  "frontmatter": {
+    "fields": {
+      "tags": { "value": "{tags}", "style": "block" },
+      "category": "{categorie}",
+      "themes": "{themes}",
+      "status": "to-review",
+      "source": "{source_url}",
+      "created": "{today}"
+    },
+    "by_family": {},
+    "base_tags": ["imported"],
+    "default_categorie": "note"
+  },
+  "custom_fields": {},
+  "formats": "formats/{LANG}.json",
+  "geocoding": { "enabled": false, "user_agent": "" },
+  "routes": {
+    "prompt": {
+      "family": "prompt",
+      "categorie": "prompt",
+      "folder": "prompts",
+      "tags": ["prompt"]
+    },
+    "skill": {
+      "family": "prompt",
+      "categorie": "prompt",
+      "folder": "prompts",
+      "tags": ["prompt", "skill"]
+    },
+    "modele-ia": {
+      "family": "resource",
+      "categorie": "note",
+      "folder": "tech",
+      "tags": ["ai"]
+    },
+    "outil-service": {
+      "family": "resource",
+      "categorie": "note",
+      "folder_if_ai": "tech",
+      "tags_if_ai": ["ai"]
+    },
+    "actualite": {
+      "family": "resource",
+      "categorie": "note",
+      "folder_if_ai": "tech",
+      "tags_if_ai": ["ai"]
+    },
+    "astuce": {
+      "family": "resource",
+      "categorie": "note"
+    },
+    "inspiration-design": {
+      "family": "resource",
+      "categorie": "note"
+    },
+    "reference": {
+      "family": "resource",
+      "categorie": "note"
+    }
+  }
+}

@@ -114,7 +114,10 @@ brew install yt-dlp ffmpeg
 python3 -m pip install --user faster-whisper "av==13.1.0"
 python3 -m pip install --user instaloader
 
-# 2. get the list of your saves
+# 2. set it up — a few questions (your notes app, where notes go, language)
+python3 scripts/compile.py --init
+
+# 3. get the list of your saves
 python3 scripts/parse_meta_export.py "~/Downloads/instagram-export/" --out items.csv
 ```
 
@@ -125,19 +128,31 @@ Then, for each item: OpenCarnet downloads it, transcribes it, assembles it, and 
 OpenCarnet does not decide for you where notes go. You tell it, in **a small settings file** you write once.
 
 You say, for example:
-- the folder where notes go (Obsidian, Notion, a folder…),
+- the folder where notes go (Obsidian, Logseq, any Markdown folder…),
 - how to name notes,
 - which keywords to add,
 - where to set aside uncertain notes.
 
-A ready-to-use settings file is included (`config.example.json`). Copy it and adapt it. That is what makes OpenCarnet work with **any notebook**, without rewriting anything.
+`--init` writes that settings file for you from a **preset** (plain Markdown folder, Obsidian, or Logseq), and copies the note templates so you can edit them. Prefer to do it by hand? A neutral example is included (`config.example.json`) — copy and adapt it. Either way, OpenCarnet works with **any notebook**, without rewriting anything.
+
+Rather have a table (a Notion database, Airtable, Google Sheets) than separate notes? Set `output` to `csv` or `jsonl` in the same file: your saves land in one spreadsheet-ready file instead.
+
+### Notes shaped by what they contain
+
+A recipe does not look like a tool, and a restaurant does not look like a book. OpenCarnet gives each kind its own layout:
+- **recipe**: servings, prep / cook / total time, ingredients with quantities, tools, numbered steps;
+- **place**: address, a ready-made **Google Maps link**, optional **GPS coordinates** (to see your places on a map);
+- **web resource**: the tool's own link, pricing, platforms, what it does;
+- **book**, **film / series**, **product** (with the date the price was seen).
+
+Times and servings are real numbers, so you can filter ("recipes under 30 minutes"). Layouts are plain Markdown templates you can copy and change. Facts the AI could get wrong — coordinates, map links, totals — are computed, never guessed.
 
 ## How it compares
 
 Most tools in this space are closed apps (Resurfy, SocialMarks, Recall, Fabric…) that file your saves **inside their app**, with a subscription. Others are open but can only file to **one place** (one specific notebook, one specific database).
 
 OpenCarnet does it differently:
-- **it files where you want** (Obsidian, Notion, a folder, a database),
+- **it files where you want** (Obsidian, Logseq, any Markdown folder),
 - **it runs with your own AI assistant**, not a separate paid one,
 - **no lock-in**: no account, no subscription,
 - **everything stays with you**.

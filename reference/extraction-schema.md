@@ -83,6 +83,8 @@ One `analyses/<id>.json` per bundle:
 | `themes` | yes | vocabulary of your taxonomy |
 | *custom fields* | per config | declared in `custom_fields` (see `configuration.md`); don't invent: leave empty if unsure |
 | `dossier_cible` | no | path **forcing** the destination (takes precedence over auto-routing) |
+| `format` | no | one of the configured formats (`recipe`, `place`…), else empty → standard note |
+| `donnees` | with `format` | object with that format's fields (see `formats.md`); computed values (GPS, map link, total time…) are left out — the engine adds them |
 | `tags_extra` | no | extra tags added to the base tags |
 | `confiance` | yes | `haute` · `moyenne` · `basse` — `basse` ⇒ inbox |
 
@@ -103,5 +105,6 @@ Apply it per bundle, with the frame sheet in view when available.
 - [ ] Every `nom` is unique and explicit.
 - [ ] No `themes` outside the taxonomy.
 - [ ] Custom fields empty when unsure.
-- [ ] `confiance: basse` ⇒ destination the configured `inbox_dir`.
+- [ ] `confiance: basse` ⇒ destination the configured `review_dir`.
+- [ ] `format` set only when the substance really is a recipe / place / …; no invented quantity, address or price.
 - [ ] An item already present (same normalized `nom`) will be merged, not duplicated.

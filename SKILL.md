@@ -35,6 +35,25 @@ Destination and routing come from a **config file** (neutral): see
 `reference/configuration.md` and `config.example.json`. No path is hardcoded in
 the engine.
 
+## Setup (once)
+
+Create a working config without writing JSON by hand:
+
+```bash
+# guided (a few questions: notes app, destination, language, review folder)
+python3 scripts/compile.py --init
+
+# or non-interactive (for an AI assistant)
+python3 scripts/compile.py --init --tool obsidian --language fr \
+  --root ~/Documents/Obsidian --review-dir "OpenCarnet/to-review"
+```
+
+`--init` writes `~/.config/opencarnet/config.json` from a **preset**
+(`plain-markdown`, `obsidian`, `logseq` — see `presets/`), copies the note
+templates of the chosen language next to the config, and prints the next step.
+Presets carry **no personal element**. Add `--force` to overwrite an existing
+config. Messages and the generated prompt follow the chosen `language` (`en`|`fr`).
+
 ## Workflow
 
 ### 1. Ingest — build the item list
@@ -153,21 +172,27 @@ python3 scripts/compile.py --analysis ./analyses/<id>.json --config ./config.jso
 ```
 
 The engine:
-- **dedupes** by normalized name across `index.scan_dir` and `inbox_dir`: an
+- **dedupes** by normalized name across `index.scan_dir` and `review_dir`: an
   existing note is never overwritten — the new source URL is appended to it
   (non-destructive merge) ;
 - writes the note from the config's `frontmatter` and `route` ;
 - adds the **index row** if a `moc` is configured ;
-- sends `low-confidence` / URL-less items to `inbox_dir`.
+- shapes the note by **format** (recipe, place, web resource, book, film, product):
+  its own properties and template, plus computed values (Google Maps link,
+  optional GPS, total time, domain) — see `reference/formats.md` ;
+- writes **one Markdown file per note** by default, or a single table
+  (`"output": "csv"` / `"jsonl"`) for Notion / Airtable / Sheets — see
+  `reference/configuration.md` (Output formats) ;
+- sends `low-confidence` / URL-less items to `review_dir`.
 
 ### 5. Review & control
 
-- **Low-confidence** or URL-less items go to the configured `inbox_dir` — never
+- **Low-confidence** or URL-less items go to the configured `review_dir` — never
   filed automatically.
 - Produce a **digest note** for the batch: N items processed, breakdown by
   `type_contenu` and theme, duplicates detected, items to complete.
-- Remind the **review**: notes arrive as `statut: À consulter`; turning them into
-  action (`En cours` → `Opérationnel` → `Traité`) remains a human gesture.
+- Remind the **review**: notes arrive with the configured status (e.g.
+  `status: to-review`); turning them into action remains a human gesture.
 
 ## Guardrails
 
@@ -186,10 +211,14 @@ The engine:
 |---|---|
 | `reference/extraction-schema.md` | Extraction schema + `type_contenu` vocabulary + normalization prompt |
 | `reference/configuration.md` | Config schema (routing, themes, frontmatter, custom fields, index) — neutral engine |
+| `reference/formats.md` | Note formats (recipe, place…), template syntax, computed values |
+| `formats/` · `templates/` | Provided formats and templates, FR and EN |
+| `presets/` | Ready configs for `--init` (plain-markdown, obsidian, logseq) — no personal element |
 | `config.example.json` | Neutral default config (no personal paths) |
 | `scripts/parse_meta_export.py` | Meta (Instagram) export → `items.csv` |
 | `scripts/parse_x_export.py` | X / Twitter archive → `items.csv` |
 | `scripts/fetch_media.sh` | yt-dlp + ffmpeg: video, info.json, frame sheet |
 | `scripts/transcribe.py` | Whisper (faster-whisper or CLI) → `.txt` |
 | `scripts/build_bundle.py` | caption + transcript + metadata → `bundle.md` |
-| `scripts/compile.py` | Neutral config-driven engine: writes/dedupes notes + index |
+| `scripts/compile.py` | Neutral config-driven engine: `--init` setup, writes/dedupes notes + index, `--print-prompt` |
+| `scripts/templating.py` · `scripts/enrich.py` | Template engine · computed values (maps link, geocoding…) |

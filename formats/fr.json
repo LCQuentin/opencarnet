@@ -1,0 +1,358 @@
+{
+  "_comment": "Formats de fiche (FR). Chaque format : quand le choisir (when), ses champs (consigne pour l'IA), ses propriétés, son modèle (templates/fr/<format>.md) et ses enrichissements calculés par le moteur.",
+  "recette": {
+    "when": "Recette de cuisine ou de boisson reproductible (ingrédients et/ou étapes).",
+    "fields": {
+      "portions": {
+        "type": "number",
+        "prompt": "Nombre de portions, seulement s'il est indiqué."
+      },
+      "temps_preparation": {
+        "type": "minutes",
+        "prompt": "Temps de préparation en minutes, s'il est indiqué."
+      },
+      "temps_cuisson": {
+        "type": "minutes",
+        "prompt": "Temps de cuisson en minutes, s'il est indiqué."
+      },
+      "temps_repos": {
+        "type": "minutes",
+        "prompt": "Temps de repos / réfrigération en minutes, s'il est indiqué."
+      },
+      "temperature": {
+        "type": "text",
+        "prompt": "Température de cuisson (ex. « 180 °C, chaleur tournante »)."
+      },
+      "difficulte": {
+        "type": "text",
+        "prompt": "facile | moyenne | difficile — seulement si c'est évident."
+      },
+      "type_plat": {
+        "type": "text",
+        "prompt": "apéritif | entrée | plat | accompagnement | dessert | boisson | sauce | petit-déjeuner | goûter."
+      },
+      "cuisine": {
+        "type": "text",
+        "prompt": "Origine culinaire si explicite (italienne, japonaise…)."
+      },
+      "regime": {
+        "type": "list",
+        "prompt": "Régimes explicitement compatibles : végétarien, vegan, sans gluten, sans lactose, riche en protéines…"
+      },
+      "ingredients": {
+        "type": "list",
+        "prompt": "Une ligne par ingrédient : « quantité unité ingrédient » (ex. « 200 g de farine »). Quantité omise si illisible — ne jamais la deviner. Groupes éventuels en préfixe : « Pâte — 200 g de farine »."
+      },
+      "ustensiles": {
+        "type": "list",
+        "prompt": "Matériel nécessaire (moule, mixeur, airfryer…)."
+      },
+      "etapes": {
+        "type": "list",
+        "prompt": "Étapes dans l'ordre, une action par élément, avec temps et températures quand ils sont donnés."
+      },
+      "astuces": {
+        "type": "list",
+        "prompt": "Conseils, variantes, conservation."
+      },
+      "nutrition": {
+        "type": "text",
+        "prompt": "Valeurs nutritionnelles seulement si elles sont données (ex. « 420 kcal, 55 g de protéines »)."
+      }
+    },
+    "frontmatter": {
+      "type_plat": "{type_plat}",
+      "portions": "{portions}",
+      "temps_preparation": "{temps_preparation}",
+      "temps_cuisson": "{temps_cuisson}",
+      "temps_total": "{temps_total}",
+      "difficulte": "{difficulte}",
+      "regime": "{regime}"
+    },
+    "enrich": [
+      {
+        "sum": "temps_total",
+        "of": [
+          "temps_preparation",
+          "temps_cuisson",
+          "temps_repos"
+        ]
+      }
+    ]
+  },
+  "lieu": {
+    "when": "Lieu physique à visiter : restaurant, bar, café, hôtel, boutique, musée, site, plage, adresse…",
+    "fields": {
+      "nom_lieu": {
+        "type": "text",
+        "prompt": "Nom exact du lieu."
+      },
+      "categorie_lieu": {
+        "type": "text",
+        "prompt": "restaurant | bar | café | boulangerie | hôtel | boutique | musée | site naturel | activité | autre."
+      },
+      "adresse": {
+        "type": "text",
+        "prompt": "Adresse (numéro et rue) seulement si elle est donnée."
+      },
+      "ville": {
+        "type": "text",
+        "prompt": "Ville."
+      },
+      "pays": {
+        "type": "text",
+        "prompt": "Pays."
+      },
+      "budget": {
+        "type": "text",
+        "prompt": "Gamme de prix ou prix cité (ex. « €€ », « menu 25 € »)."
+      },
+      "site": {
+        "type": "text",
+        "prompt": "Site web ou compte Instagram du lieu, s'il est cité."
+      },
+      "description": {
+        "type": "text",
+        "prompt": "2–3 phrases : l'ambiance, ce qui le rend notable."
+      },
+      "a_essayer": {
+        "type": "list",
+        "prompt": "Plats, produits ou expériences recommandés."
+      },
+      "infos_pratiques": {
+        "type": "list",
+        "prompt": "Réservation, horaires mentionnés, accès, saison…"
+      }
+    },
+    "frontmatter": {
+      "categorie_lieu": "{categorie_lieu}",
+      "ville": "{ville}",
+      "pays": "{pays}",
+      "adresse": "{adresse}",
+      "coordonnees": "{coordonnees}",
+      "precision_gps": "{precision_gps}",
+      "google_maps": "{google_maps}",
+      "budget": "{budget}"
+    },
+    "enrich": [
+      {
+        "maps_link": "google_maps",
+        "query": [
+          "nom_lieu",
+          "adresse",
+          "ville",
+          "pays"
+        ],
+        "require_any": [
+          "nom_lieu",
+          "adresse"
+        ]
+      },
+      {
+        "geocode": "coordonnees",
+        "query": [
+          "nom_lieu",
+          "adresse",
+          "ville",
+          "pays"
+        ],
+        "fallback": [
+          "adresse",
+          "ville",
+          "pays"
+        ],
+        "require": [
+          "ville"
+        ],
+        "precision": "precision_gps",
+        "fallback_require": [
+          "adresse"
+        ],
+        "match": "ville",
+        "min_precision": "adresse",
+        "require_any": [
+          "nom_lieu",
+          "adresse"
+        ]
+      }
+    ]
+  },
+  "ressource-web": {
+    "when": "Site, outil en ligne, application, extension, dépôt de code ou article web à (ré)utiliser.",
+    "fields": {
+      "url": {
+        "type": "text",
+        "prompt": "URL du site ou de l'outil lui-même (PAS celle du post source), seulement si elle est visible ou citée."
+      },
+      "categorie_ressource": {
+        "type": "text",
+        "prompt": "outil | site | application | extension | dépôt | article | vidéo | cours."
+      },
+      "modele_prix": {
+        "type": "text",
+        "prompt": "gratuit | freemium | payant | open source — seulement si c'est indiqué."
+      },
+      "prix": {
+        "type": "text",
+        "prompt": "Prix cité (ex. « 12 €/mois »)."
+      },
+      "plateformes": {
+        "type": "list",
+        "prompt": "web, macOS, Windows, iOS, Android, Chrome…"
+      },
+      "fonctionnalites": {
+        "type": "list",
+        "prompt": "Ce que l'outil permet, une fonctionnalité par élément."
+      },
+      "utilisation": {
+        "type": "list",
+        "prompt": "Étapes pour s'en servir, si elles sont montrées."
+      },
+      "alternatives": {
+        "type": "list",
+        "prompt": "Alternatives citées."
+      }
+    },
+    "frontmatter": {
+      "url": "{url}",
+      "domaine": "{domaine}",
+      "categorie_ressource": "{categorie_ressource}",
+      "modele_prix": "{modele_prix}",
+      "plateformes": "{plateformes}"
+    },
+    "enrich": [
+      {
+        "domain": "domaine",
+        "from": "url"
+      }
+    ]
+  },
+  "livre": {
+    "when": "Livre recommandé ou présenté.",
+    "fields": {
+      "titre": {
+        "type": "text",
+        "prompt": "Titre exact du livre."
+      },
+      "auteur": {
+        "type": "text",
+        "prompt": "Auteur(s)."
+      },
+      "annee": {
+        "type": "number",
+        "prompt": "Année de parution, seulement si elle est donnée."
+      },
+      "genre": {
+        "type": "text",
+        "prompt": "Genre (essai, roman, développement personnel…)."
+      },
+      "isbn": {
+        "type": "text",
+        "prompt": "ISBN seulement s'il est visible."
+      },
+      "pourquoi": {
+        "type": "text",
+        "prompt": "Pourquoi le lire, en 1–2 phrases."
+      },
+      "idees_cles": {
+        "type": "list",
+        "prompt": "Idées clés présentées."
+      }
+    },
+    "frontmatter": {
+      "auteur": "{auteur}",
+      "annee": "{annee}",
+      "genre": "{genre}",
+      "isbn": "{isbn}"
+    }
+  },
+  "film-serie": {
+    "when": "Film, série, documentaire ou émission recommandé.",
+    "fields": {
+      "titre": {
+        "type": "text",
+        "prompt": "Titre (et titre original s'il diffère)."
+      },
+      "type_oeuvre": {
+        "type": "text",
+        "prompt": "film | série | documentaire | émission | anime."
+      },
+      "realisation": {
+        "type": "text",
+        "prompt": "Réalisateur ou créateur."
+      },
+      "annee": {
+        "type": "number",
+        "prompt": "Année de sortie, seulement si elle est donnée."
+      },
+      "genre": {
+        "type": "text",
+        "prompt": "Genre."
+      },
+      "plateforme": {
+        "type": "text",
+        "prompt": "Où le voir (Netflix, cinéma…), si c'est cité."
+      },
+      "pitch": {
+        "type": "text",
+        "prompt": "Le pitch en 1–2 phrases, sans divulgâcher."
+      },
+      "pourquoi": {
+        "type": "text",
+        "prompt": "Pourquoi le voir."
+      }
+    },
+    "frontmatter": {
+      "type_oeuvre": "{type_oeuvre}",
+      "realisation": "{realisation}",
+      "annee": "{annee}",
+      "genre": "{genre}",
+      "plateforme": "{plateforme}"
+    }
+  },
+  "produit": {
+    "when": "Produit physique à acheter ou à retenir (objet, mobilier, vêtement, gadget, cosmétique…).",
+    "fields": {
+      "marque": {
+        "type": "text",
+        "prompt": "Marque."
+      },
+      "modele": {
+        "type": "text",
+        "prompt": "Modèle / référence."
+      },
+      "prix": {
+        "type": "text",
+        "prompt": "Prix cité, avec la devise (ex. « 129 € »)."
+      },
+      "lien": {
+        "type": "text",
+        "prompt": "Lien d'achat ou site de la marque, seulement s'il est visible."
+      },
+      "points_forts": {
+        "type": "list",
+        "prompt": "Points forts présentés."
+      },
+      "points_faibles": {
+        "type": "list",
+        "prompt": "Limites ou défauts mentionnés."
+      },
+      "alternatives": {
+        "type": "list",
+        "prompt": "Alternatives citées."
+      }
+    },
+    "frontmatter": {
+      "marque": "{marque}",
+      "prix": "{prix}",
+      "prix_constate_le": "{prix_constate_le}",
+      "lien": "{lien}"
+    },
+    "enrich": [
+      {
+        "stamp": "prix_constate_le",
+        "if": "prix"
+      }
+    ]
+  }
+}

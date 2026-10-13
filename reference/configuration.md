@@ -1,7 +1,8 @@
 # Engine configuration (neutral)
 
-> The engine (`scripts/compile.py`) knows **no hardcoded path**. All routing,
-> themes, frontmatter and index come from a JSON file. This is what lets the same
+> The engine (`scripts/compile.py`) knows **no hardcoded path, property or note
+> text**. Routing, themes, frontmatter, note formats, templates and index come
+> from a JSON file and template files (see also **`formats.md`**). This is what lets the same
 > engine serve a personal vault, a wiki, a notes folder, or a neutral export.
 
 ## Where the config lives
@@ -13,13 +14,42 @@ Resolution order:
 
 Keep your **personal** config out of the repo (it should not be published).
 
+## Initialize (`--init`)
+
+The easiest way to get a working config — no JSON to write by hand:
+
+```bash
+python3 scripts/compile.py --init                          # guided questions
+python3 scripts/compile.py --init --tool obsidian --language fr \
+  --root ~/Documents/Obsidian --review-dir "OpenCarnet/to-review"   # non-interactive
+```
+
+| Flag | Meaning |
+|---|---|
+| `--tool` | preset: `plain-markdown`, `obsidian`, `logseq` (see `presets/`) |
+| `--language` | `en` or `fr` — templates, messages and generated prompt |
+| `--root` | destination root (default from the preset) |
+| `--review-dir` | "to review" folder (default from the preset) |
+| `--templates-dir` | where templates are copied (default: `<config dir>/templates`) |
+| `--config` | where to write the config (default `~/.config/opencarnet/config.json`) |
+| `--force` | overwrite an existing config / templates |
+
+`--init` writes the config, sets `templates_dir` (so you can edit the note
+templates) and copies the chosen language's templates there. Each preset controls
+`link_style`, folder layout, the taxonomy and — for Obsidian — an optional index;
+**no preset contains a personal element**. Messages and prompts are emitted in the
+config's `language` (`en` | `fr`).
+
 ## Config schema
 
 ```jsonc
 {
   "root": "~/my-notes",                  // destination root
-  "inbox_dir": "inbox",                   // where low-confidence items land
-  "index": { "scan_dir": "notes" },       // folder scanned for deduplication (inbox_dir is always scanned too)
+  "language": "en",                       // templates/<language>/ (en | fr)
+  "templates_dir": "~/my-templates",      // optional: your own templates, searched first
+  "link_style": "wikilink",               // or "markdown"
+  "review_dir": "to-review",              // where low-confidence items land (old name: inbox_dir)
+  "index": { "scan_dir": "notes" },       // folder scanned for deduplication (review_dir is always scanned too)
   "default_theme": "general",
   "ai_themes": ["tech"],
   "themes": { "<slug>": "<path relative to root>" },
@@ -38,6 +68,9 @@ Keep your **personal** config out of the repo (it should not be published).
   "custom_fields": {                      // your own fields, filled by the AI
     "projects": { "type": "list", "prompt": "Related projects, as [[wikilinks]]. Empty if unsure." }
   },
+  "formats": "formats/en.json",            // note formats (recipe, place…) — see formats.md
+  "geocoding": { "enabled": false, "user_agent": "" },
+  "output": "markdown",                     // "markdown" (files) | "csv" | "jsonl" — see Output formats
   "routes": {
     "<type_contenu>": {
       "family": "prompt" | "resource",     // prompt => "prompt" body, else "resource"
@@ -90,7 +123,36 @@ used as placeholders in `frontmatter.fields` or in a route's `categorie`.
    - if `folder_if_ai` and a theme ∈ `ai_themes` → `folder_if_ai` ;
    - otherwise → the folder of the **first** theme (`themes[0]`), else `default_theme`.
 4. A `dossier_cible` provided by the analysis **takes precedence** over all.
-5. `confiance == "basse"` **or** empty `source_url` → `inbox_dir` (never indexed).
+5. A `folder` set on the note's **format** overrides steps 2–3 (not step 4).
+6. `confiance == "basse"` **or** empty `source_url` → `review_dir` (never indexed).
+
+## Output formats
+
+Notes are written as **Markdown files** by default (one per note, plus the
+optional index). To gather everything into a single table instead — for Notion,
+Airtable or Sheets — set `output`:
+
+```jsonc
+"output": "csv"                       // shorthand: { "format": "csv" }
+"output": {
+  "format": "csv",                    // or "jsonl" (one JSON object per line)
+  "file": "opencarnet.csv",           // default: opencarnet.<format>
+  "review_file": "to-review.csv",     // low-confidence items; default: to-review.<format>
+  "columns": { "title": "{nom}", "theme": "{themes}", "link": "{source_url}" },
+  "body": false,                      // true: add a `body` column with the full Markdown
+  "list_sep": "; "                    // lists joined with this in CSV
+}
+```
+
+- **One row per note.** Deduplication is unchanged (by normalized name): an
+  existing row is never duplicated — the new source is appended to its `source`.
+- Low-confidence / URL-less items go to `review_file` (never mixed with the rest).
+- **Default columns** = `nom` + your `frontmatter` properties (including
+  `by_family` and per-format properties), so no field is lost. Set `columns` for
+  a clean subset; `nom` stays present (title + dedup key). Column values use the
+  same placeholders as the frontmatter.
+- `jsonl` keeps types (lists stay arrays, numbers stay numbers); `csv` joins
+  lists with `list_sep` and quotes multi-line values (e.g. `body`).
 
 ## Methodology rules (storage-independent)
 - **"List" granularity**: recipe → one note; tool list → one note per tool;
@@ -104,6 +166,7 @@ used as placeholders in `frontmatter.fields` or in a route's `categorie`.
   by `-` (they break filenames, `[[wikilinks]]` or index tables).
 
 ## Provided examples
+- `presets/` — starting configs used by `--init` (`plain-markdown`, `obsidian`, `logseq`).
 - `config.example.json` — neutral (no personal paths).
 - A real config usually lives at
   `~/.config/opencarnet/config.json`.

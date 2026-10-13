@@ -1,7 +1,9 @@
 {
-  "_comment": "Exemple de config NEUTRE (aucun chemin perso). Copier vers ~/.config/opencarnet/config.json et adapter.",
+  "_comment": "Neutral example config (no personal paths). Copy to ~/.config/opencarnet/config.json and adapt.",
   "root": "./out",
-  "inbox_dir": "inbox",
+  "language": "en",
+  "link_style": "wikilink",
+  "review_dir": "to-review",
   "index": {
     "scan_dir": "."
   },
@@ -36,6 +38,12 @@
     "default_categorie": "note"
   },
   "custom_fields": {},
+  "formats": "formats/en.json",
+  "geocoding": {
+    "_comment": "Optional GPS lookup for places via OpenStreetMap Nominatim (network call, max 1 request/s, cached). Set a User-Agent that identifies you.",
+    "enabled": false,
+    "user_agent": ""
+  },
   "routes": {
     "prompt": {
       "family": "prompt",

@@ -114,7 +114,10 @@ brew install yt-dlp ffmpeg
 python3 -m pip install --user faster-whisper "av==13.1.0"
 python3 -m pip install --user instaloader
 
-# 2. récupérer la liste de vos enregistrements
+# 2. le configurer — quelques questions (votre outil de notes, où ranger, la langue)
+python3 scripts/compile.py --init
+
+# 3. récupérer la liste de vos enregistrements
 python3 scripts/parse_meta_export.py "~/Downloads/instagram-export/" --out items.csv
 ```
 
@@ -125,19 +128,31 @@ Ensuite, pour chaque contenu : OpenCarnet le télécharge, le transcrit, l'assem
 OpenCarnet ne décide pas à votre place où ranger vos notes. Vous le lui dites, dans **un petit fichier de réglages** que vous écrivez une fois.
 
 Vous y précisez par exemple :
-- le dossier où vont les fiches (Obsidian, Notion, un dossier…),
+- le dossier où vont les fiches (Obsidian, Logseq, n'importe quel dossier Markdown…),
 - comment nommer les fiches,
 - quels mots-clés ajouter,
 - où mettre de côté les fiches douteuses.
 
-Un réglage prêt à l'emploi est fourni (`config.example.json`). Vous le copiez et vous l'adaptez. C'est ce qui rend OpenCarnet utilisable avec **n'importe quel carnet**, sans rien réécrire.
+`--init` écrit ce fichier de réglages pour vous à partir d'un **preset** (dossier Markdown, Obsidian ou Logseq), et copie les modèles de fiches pour que vous puissiez les modifier. Vous préférez le faire à la main ? Un exemple neutre est fourni (`config.example.json`) — copiez-le et adaptez-le. Dans tous les cas, OpenCarnet marche avec **n'importe quel carnet**, sans rien réécrire.
+
+Vous préférez un tableau (une base Notion, Airtable, Google Sheets) à des fiches séparées ? Réglez `output` sur `csv` ou `jsonl` dans le même fichier : vos enregistrements arrivent dans un fichier unique, prêt à importer.
+
+### Des fiches mises en forme selon leur contenu
+
+Une recette ne ressemble pas à un outil, et un restaurant ne ressemble pas à un livre. OpenCarnet donne à chacun sa mise en forme :
+- **recette** : portions, temps de préparation / cuisson / total, ingrédients avec quantités, ustensiles, étapes numérotées ;
+- **lieu** : adresse, **lien Google Maps** prêt à cliquer, **coordonnées GPS** en option (pour voir vos lieux sur une carte) ;
+- **ressource web** : le lien de l'outil lui-même, son modèle de prix, ses plateformes, ce qu'il permet ;
+- **livre**, **film / série**, **produit** (avec la date à laquelle le prix a été relevé).
+
+Les temps et les portions sont de vrais nombres : vous pouvez filtrer (« recettes de moins de 30 minutes »). Les mises en forme sont de simples modèles Markdown, à copier et modifier. Ce que l'IA pourrait inventer (coordonnées, liens de carte, totaux) est calculé, jamais deviné.
 
 ## Comment ça se compare
 
 La plupart des outils du secteur sont des applications fermées (Resurfy, SocialMarks, Recall, Fabric…) qui rangent vos enregistrements **dans leur application**, avec un abonnement. D'autres sont ouverts mais ne savent ranger qu'à **un seul endroit** (un carnet précis, une base précise).
 
 OpenCarnet fait autrement :
-- **il range où vous voulez** (Obsidian, Notion, un dossier, une base),
+- **il range où vous voulez** (Obsidian, Logseq, n'importe quel dossier Markdown),
 - **il tourne avec votre assistant IA**, pas avec une IA payante à part,
 - **il ne vous enferme pas** : pas de compte, pas d'abonnement,
 - **tout reste chez vous**.
