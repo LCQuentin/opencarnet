@@ -13,3 +13,20 @@ work/
 bundles/
 analyses/
 *.session
+
+# Source lists & platform exports (your own saves — never commit)
+items*.csv
+items*.json
+*.info.json
+cookies*.txt
+cookies*.json
+*.cookies
+_images/
+
+# Downloaded media & caches
+*.mp4
+*.webm
+*.m4a
+*.srt
+*.vtt
+.cache/
