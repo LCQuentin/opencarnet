@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -130,6 +131,7 @@ class CompileHelpersTest(unittest.TestCase):
             root = Path(t)
             (root / "sub").mkdir()
             outside = Path(tempfile.mkdtemp())
+            self.addCleanup(shutil.rmtree, outside, True)
             os.symlink(outside, root / "link")
             self.assertTrue(C.within_root(root, root / "sub" / "x"))
             self.assertTrue(C.within_root(root, root / "link"))   # lexical, no symlink follow
@@ -199,12 +201,15 @@ class I18nTest(unittest.TestCase):
                 self.assertEqual(P.default_lang(), "fr")
                 (d / "config.json").unlink()
                 self.assertEqual(P.default_lang(), "en")      # locale C → en
+                os.environ["LC_ALL"] = "fr_FR.UTF-8"          # no config → system locale
+                self.assertEqual(P.default_lang(), "fr")
 
 
 # --------------------------------------------------------------------------- #
 class EndToEndTest(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp, True)
         self.cfg = self.tmp / "config.json"
         self.root = self.tmp / "notes"
         r = run_compile("--init", "--force", "--config", str(self.cfg),
@@ -225,13 +230,14 @@ class EndToEndTest(unittest.TestCase):
 
     def test_path_traversal_blocked(self):
         outside = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, outside, True)
         a = write_analysis(self.tmp / "a.json", [
             item("Evil", dossier_cible=str(outside)),
             item("Evil2", dossier_cible="../../evil2"),
         ])
         run_compile("--analysis", str(a), "--config", str(self.cfg))
         self.assertFalse((outside / "Evil.md").exists())
-        self.assertFalse((self.tmp / "evil2").exists())
+        self.assertFalse((self.root / ".." / ".." / "evil2").exists())
         self.assertTrue((self.root / "to-review" / "Evil.md").exists())
 
     def test_dry_run_counts_and_writes_nothing(self):

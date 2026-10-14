@@ -67,12 +67,13 @@ def set_lang(lang: str | None) -> None:
 
 
 def _config_lang() -> str | None:
-    """Langue lue dans la config, **même ordre que compile.load_config**."""
+    """Langue lue dans la config, même ordre que compile.load_config — sans
+    config.example.json (toujours présent, en `en`) : sinon la locale système
+    ne serait jamais consultée."""
     candidates = [
         os.environ.get("OPENCARNET_CONFIG", ""),
         os.environ.get("INSTAGRAM_SAVED_CONFIG", ""),  # ancien nom, conservé
         str(Path.home() / ".config" / "opencarnet" / "config.json"),
-        str(Path(__file__).resolve().parent.parent / "config.example.json"),
     ]
     for c in candidates:
         if not c:
