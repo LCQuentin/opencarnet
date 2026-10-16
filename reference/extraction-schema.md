@@ -101,6 +101,11 @@ Apply it per bundle, with the frame sheet in view when available.
 
 ## Quality check (before filing)
 
+`python3 scripts/compile.py --check ./analyses/` checks the mechanical points
+below against your config (vocabulary, themes, `confiance`, `format`, computed
+values, custom-field types). The judgement points (explicit names, nothing
+invented) remain yours.
+
 - [ ] Every `type_contenu` is in the vocabulary.
 - [ ] Every `nom` is unique and explicit.
 - [ ] No `themes` outside the taxonomy.

@@ -197,6 +197,15 @@ custom fields — with:
 python3 scripts/compile.py --print-prompt
 ```
 
+Then **validate** the analyses against the config before filing — unknown
+`type_contenu`, themes outside the taxonomy, invalid `confiance`, unknown
+`format`, computed values in `donnees`, wrong custom-field types. Each message
+names the file and the extraction, so fix the JSON and re-run until it is clean:
+
+```bash
+python3 scripts/compile.py --check ./analyses/      # a file or a folder; writes nothing
+```
+
 Principle: a single item can hold several substances (e.g. a reel that cites a
 tool **and** gives a tip) → allow several `extraction[]` per bundle, each routed
 independently. `exploitation` (uses for a role/project) is filled automatically,
@@ -212,6 +221,10 @@ from a **config file** (see **`reference/configuration.md`** and
 # config is auto-detected (~/.config/opencarnet/config.json)
 python3 scripts/compile.py --analysis ./analyses/<id>.json --dry-run
 python3 scripts/compile.py --analysis ./analyses/<id>.json
+
+# a whole folder of analyses at once (deduped across files; an unreadable
+# JSON is reported, the others are still filed, exit code 1)
+python3 scripts/compile.py --analysis ./analyses/
 
 # or explicitly
 python3 scripts/compile.py --analysis ./analyses/<id>.json --config ./config.json
@@ -280,6 +293,6 @@ The engine:
 | `scripts/fetch_media.sh` | yt-dlp + ffmpeg: video, info.json, frame sheet (`--subs` for long videos) |
 | `scripts/transcribe.py` | Whisper (faster-whisper or CLI) → `.txt` |
 | `scripts/build_bundle.py` | caption + transcript + metadata → `bundle.md` |
-| `scripts/compile.py` | Neutral config-driven engine: `--init` setup, writes/dedupes notes + index, `--print-prompt` |
+| `scripts/compile.py` | Neutral config-driven engine: `--init` setup, writes/dedupes notes + index (`--analysis` file or folder), `--check`, `--print-prompt` |
 | `scripts/templating.py` · `scripts/enrich.py` | Template engine · computed values (maps link, geocoding…) |
 | `tests/` | Unit + end-to-end tests: `python3 -m unittest discover -s tests -t .` |

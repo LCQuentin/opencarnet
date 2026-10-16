@@ -293,6 +293,49 @@ class EndToEndTest(unittest.TestCase):
         self.assertNotIn("duplicate", (self.root / "Foo.md").read_text().lower())
         self.assertTrue((self.root / "general" / "Foo.md").exists())
 
+    # --- --check / --analysis <folder> ---------------------------------------
+    def test_check_example_is_clean(self):
+        r = run_compile("--check", str(EXAMPLE), "--config", str(self.cfg))
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_check_reports_each_error(self):
+        d = self.tmp / "an"
+        d.mkdir()
+        write_analysis(d / "bad.json", [
+            item("", type_contenu="unknown-type", themes=["nope"], confiance="high",
+                 format="pizza"),
+            item("Place", themes="general", format="place",
+                 donnees={"city": "Paris", "google_maps": "x"}),
+            {"type_contenu": "aucun"},
+        ])
+        (d / "broken.json").write_text("{ nope")
+        r = run_compile("--check", str(d), "--config", str(self.cfg))
+        self.assertEqual(r.returncode, 1)
+        for needle in ("unknown-type", '"nom" is empty', "nope", '"high"', '"pizza"',
+                       '"themes" must be a list', "google_maps", "broken.json"):
+            self.assertIn(needle, r.stdout)
+        self.assertEqual(r.stdout.count("[!]"), 8)       # nothing reported for "aucun"
+        self.assertEqual(self._md(), [])                  # --check writes nothing
+
+    def test_analysis_folder_same_as_one_by_one(self):
+        d = self.tmp / "an"
+        d.mkdir()
+        write_analysis(d / "1.json", [item("A"), item("B")])
+        write_analysis(d / "2.json", [item("a"), item("C")], src="https://x.com/i/web/status/2")
+        r = run_compile("--analysis", str(d), "--config", str(self.cfg))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("3 created, 1 duplicate", r.stdout)  # "a" merges into "A" across files
+        self.assertIn("status/2", (self.root / "general" / "A.md").read_text())
+
+    def test_analysis_folder_skips_broken_json(self):
+        d = self.tmp / "an"
+        d.mkdir()
+        write_analysis(d / "1.json", [item("A")])
+        (d / "2.json").write_text("{ nope")
+        r = run_compile("--analysis", str(d), "--config", str(self.cfg))
+        self.assertEqual(r.returncode, 1)                 # reported…
+        self.assertTrue((self.root / "general" / "A.md").exists())  # …but the rest is filed
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

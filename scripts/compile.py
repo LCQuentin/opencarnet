@@ -9,6 +9,8 @@ config. C'est ce qui permet le même moteur pour tous les usages.
 Usage :
     python3 compile.py --init [--tool obsidian] [--language fr] [--root ~/notes] [--force]
     python3 compile.py --analysis analyses/x.json [--config config.json] [--dry-run]
+    python3 compile.py --analysis analyses/ [--config config.json]   # tout un dossier
+    python3 compile.py --check analyses/ [--config config.json]      # valide sans écrire
     python3 compile.py --print-prompt [--config config.json]
 
 Résolution de la config (par ordre) :
@@ -17,7 +19,7 @@ Résolution de la config (par ordre) :
     3. ~/.config/opencarnet/config.json
     4. <skill>/config.example.json
 
-Codes de sortie : 0 = ok, 1 = erreur, 2 = rien à faire.
+Codes de sortie : 0 = ok, 1 = erreur (dont analyse invalide avec --check), 2 = rien à faire.
 """
 from __future__ import annotations
 
@@ -64,7 +66,23 @@ MESSAGES = {
                       "frontmatter.fields (and frontmatter.by_family for extras). "
                       "See reference/configuration.md and config.example.json.",
         "analysis_missing": "analysis not found: {path}",
-        "analysis_required": "--analysis is required (or --print-prompt / --init)",
+        "analysis_required": "--analysis is required (or --check / --print-prompt / --init)",
+        "analysis_bad_json": "{path}: unreadable JSON ({err})",
+        "analysis_none": "no analysis file (*.json) in {path}",
+        "chk_line": "{path}: extraction #{n}: {msg}",
+        "chk_file": "{path}: {msg}",
+        "chk_no_extraction": "missing or invalid \"extraction\" list",
+        "chk_nom": "\"nom\" is empty",
+        "chk_type": "type_contenu \"{v}\" unknown — expected one of: {allowed}",
+        "chk_themes_type": "\"themes\" must be a list",
+        "chk_theme": "theme(s) {v} not in the config themes: {allowed}",
+        "chk_conf": "confiance \"{v}\" invalid — expected haute | moyenne | basse",
+        "chk_format": "format \"{v}\" unknown — expected one of: {allowed} (or empty)",
+        "chk_donnees_type": "\"donnees\" must be an object",
+        "chk_computed": "donnees: {v} computed by the engine — leave it out",
+        "chk_custom": "\"{k}\" must be a {t}",
+        "chk_ok": "{files} analysis file(s), {n} extraction(s): no error.",
+        "chk_errors": "{count} error(s) in {files} analysis file(s).",
         "bad_output": "output.format \"{fmt}\" unknown — use \"markdown\", \"csv\" or \"jsonl\".",
         "nothing": "nothing to file.",
         "ignored": "ignored (type_contenu={tc}): {name}",
@@ -106,7 +124,23 @@ MESSAGES = {
                       "dans frontmatter.fields (et frontmatter.by_family pour les extras). "
                       "Voir reference/configuration.md et config.example.json.",
         "analysis_missing": "analyse introuvable : {path}",
-        "analysis_required": "--analysis est requis (ou --print-prompt / --init)",
+        "analysis_required": "--analysis est requis (ou --check / --print-prompt / --init)",
+        "analysis_bad_json": "{path} : JSON illisible ({err})",
+        "analysis_none": "aucun fichier d'analyse (*.json) dans {path}",
+        "chk_line": "{path} : extraction n°{n} : {msg}",
+        "chk_file": "{path} : {msg}",
+        "chk_no_extraction": "liste « extraction » absente ou invalide",
+        "chk_nom": "« nom » est vide",
+        "chk_type": "type_contenu « {v} » inconnu — valeurs possibles : {allowed}",
+        "chk_themes_type": "« themes » doit être une liste",
+        "chk_theme": "thème(s) {v} absent(s) des thèmes de la config : {allowed}",
+        "chk_conf": "confiance « {v} » invalide — attendu : haute | moyenne | basse",
+        "chk_format": "format « {v} » inconnu — valeurs possibles : {allowed} (ou vide)",
+        "chk_donnees_type": "« donnees » doit être un objet",
+        "chk_computed": "donnees : {v} calculé(s) par le moteur — à retirer",
+        "chk_custom": "« {k} » doit être de type {t}",
+        "chk_ok": "{files} fichier(s) d'analyse, {n} extraction(s) : aucune erreur.",
+        "chk_errors": "{count} erreur(s) dans {files} fichier(s) d'analyse.",
         "bad_output": "output.format « {fmt} » inconnu — utilisez « markdown », « csv » ou « jsonl ».",
         "nothing": "aucune extraction exploitable.",
         "ignored": "ignoré (type_contenu={tc}) : {name}",
@@ -649,6 +683,104 @@ def update_moc(root: Path, moc_rel: str, section: str, name: str, tc: str, today
     return "indexed"
 
 
+# ---------- lecture & validation des analyses ----------
+
+CONFIANCE = ("haute", "moyenne", "basse")
+
+
+def analysis_files(path: Path) -> list[Path]:
+    """Un fichier, ou tous les *.json d'un dossier (ordre alphabétique)."""
+    return sorted(path.glob("*.json")) if path.is_dir() else [path]
+
+
+def read_analysis(path: Path):
+    """-> (données, erreur) ; erreur = texte si le JSON est illisible."""
+    try:
+        return json.loads(path.read_text(encoding="utf-8")), None
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        return None, str(exc)
+
+
+def check_analysis(data, cfg: dict, lang: str) -> list[tuple[int | None, str]]:
+    """Écarts entre une analyse et la config active : [(n° d'extraction | None, message)].
+    Messages rédigés pour que l'IA puisse corriger son JSON elle-même."""
+    exts = data.get("extraction") if isinstance(data, dict) else None
+    if not isinstance(exts, list):
+        return [(None, T(lang, "chk_no_extraction"))]
+    routes = list((cfg.get("routes") or {}).keys()) + ["aucun"]
+    themes = list((cfg.get("themes") or {}).keys())
+    formats = cfg.get("formats") or {}
+    custom = cfg.get("custom_fields") or {}
+    out = []
+    for n, ext in enumerate(exts, 1):
+        if not isinstance(ext, dict):
+            out.append((n, T(lang, "chk_no_extraction")))
+            continue
+        tc = ext.get("type_contenu")
+        if tc not in routes:
+            out.append((n, T(lang, "chk_type", v=tc, allowed=", ".join(routes))))
+        if tc == "aucun":
+            continue  # ignoré par le moteur : rien d'autre à vérifier
+        if not str(ext.get("nom") or "").strip():
+            out.append((n, T(lang, "chk_nom")))
+        th = ext.get("themes")
+        if th is not None and not isinstance(th, list):
+            out.append((n, T(lang, "chk_themes_type")))
+        elif themes:
+            bad = [t for t in (th or []) if t not in themes]
+            if bad:
+                out.append((n, T(lang, "chk_theme", v=", ".join(map(str, bad)),
+                                 allowed=", ".join(themes))))
+        if ext.get("confiance") not in CONFIANCE:
+            out.append((n, T(lang, "chk_conf", v=ext.get("confiance", ""))))
+        fname = ext.get("format") or ""
+        if fname and fname not in formats:
+            out.append((n, T(lang, "chk_format", v=fname, allowed=", ".join(formats) or "—")))
+        donnees = ext.get("donnees")
+        if donnees not in (None, "") and not isinstance(donnees, dict):
+            out.append((n, T(lang, "chk_donnees_type")))
+        elif fname in formats and isinstance(donnees, dict):
+            computed = sorted(set(donnees) & enrich.targets(formats[fname].get("enrich")))
+            if computed:
+                out.append((n, T(lang, "chk_computed", v=", ".join(computed))))
+        for k, d in custom.items():
+            if not isinstance(d, dict) or ext.get(k) in (None, ""):
+                continue
+            t = d.get("type", "text")
+            if (t == "list") != isinstance(ext[k], list):
+                out.append((n, T(lang, "chk_custom", k=k, t=t)))
+    return out
+
+
+def run_check(path: Path, cfg: dict, lang: str) -> int:
+    if not path.exists():
+        print("[!] " + T(lang, "analysis_missing", path=path), file=sys.stderr)
+        return 1
+    files = analysis_files(path)
+    if not files:
+        print("[!] " + T(lang, "analysis_none", path=path), file=sys.stderr)
+        return 1
+    errors = n_ext = 0
+    for f in files:
+        data, err = read_analysis(f)
+        if err:
+            print("[!] " + T(lang, "analysis_bad_json", path=f, err=err))
+            errors += 1
+            continue
+        problems = check_analysis(data, cfg, lang)
+        if isinstance(data, dict) and isinstance(data.get("extraction"), list):
+            n_ext += len(data["extraction"])
+        for n, msg in problems:
+            print("[!] " + (T(lang, "chk_line", path=f, n=n, msg=msg) if n
+                            else T(lang, "chk_file", path=f, msg=msg)))
+        errors += len(problems)
+    if errors:
+        print(T(lang, "chk_errors", count=errors, files=len(files)))
+        return 1
+    print("[ok] " + T(lang, "chk_ok", files=len(files), n=n_ext))
+    return 0
+
+
 # ---------- sortie tabulaire (csv / jsonl) ----------
 #
 # `output` : "markdown" (dossiers + index, défaut) ou un objet :
@@ -889,7 +1021,9 @@ def run_init(args) -> int:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--analysis")
+    ap.add_argument("--analysis", help="analysis JSON file, or a folder of them")
+    ap.add_argument("--check", metavar="PATH",
+                    help="validate analysis file(s) against the config, write nothing")
     ap.add_argument("--init", action="store_true",
                     help="guided setup: write a config and copy the templates")
     ap.add_argument("--tool", choices=SUPPORTED_TOOLS,
@@ -919,6 +1053,8 @@ def main() -> int:
     if args.print_prompt:
         print(build_prompt(cfg))
         return 0
+    if args.check:
+        return run_check(Path(args.check).expanduser(), cfg, lang)
     if not args.analysis:
         ap.error(T(lang, "analysis_required"))
     root = Path(os.path.expanduser(str(cfg.get("root", "."))))
@@ -934,13 +1070,24 @@ def main() -> int:
     if not apath.exists():
         print("[!] " + T(lang, "analysis_missing", path=apath), file=sys.stderr)
         return 1
-    data = json.loads(apath.read_text(encoding="utf-8"))
-    exts = data.get("extraction") or []
-    if not exts:
+    files = analysis_files(apath)
+    if not files:
+        print("[!] " + T(lang, "analysis_none", path=apath), file=sys.stderr)
+        return 1
+    jobs, bad = [], 0  # (source_url, extraction) de toutes les analyses, dans l'ordre
+    for f in files:
+        data, err = read_analysis(f)
+        if err or not isinstance(data, dict):
+            print("[!] " + T(lang, "analysis_bad_json", path=f, err=err or "not an object"),
+                  file=sys.stderr)
+            bad += 1
+            continue
+        jobs += [(data.get("source_url", ""), ext) for ext in (data.get("extraction") or [])
+                 if isinstance(ext, dict)]
+    if not jobs:
         print("[i] " + T(lang, "nothing"))
-        return 2
+        return 1 if bad else 2
 
-    src = data.get("source_url", "")
     today = date.today().isoformat()
     created = updated = skipped = 0
 
@@ -954,7 +1101,7 @@ def main() -> int:
         rows = {False: load_table(file_path, out_fmt), True: load_table(review_path, out_fmt)}
         by_key = {low: {dedup_key(r.get("nom", "")): r for r in rows[low] if "_raw" not in r}
                   for low in (False, True)}
-        for ext in exts:
+        for src, ext in jobs:
             route = resolve(ext, cfg)
             if route is None:
                 print("[i] " + T(lang, "ignored", tc=ext.get("type_contenu"), name=ext.get("nom")))
@@ -999,11 +1146,11 @@ def main() -> int:
         verb = T(lang, "verb_dry") if args.dry_run else ""
         print(T(lang, "summary", verb=verb, created=created, dup=updated, skipped=skipped,
                 cfg=cfg.get("_path")))
-        return 0
+        return 1 if bad else 0
 
     extra = [] if scan_dir in ("", ".") else [scan_dir]
     by_name = scan_index(root, dedup(managed_dirs(cfg) + extra))
-    for ext in exts:
+    for src, ext in jobs:
         route = resolve(ext, cfg)
         if route is None:
             print("[i] " + T(lang, "ignored", tc=ext.get("type_contenu"), name=ext.get("nom")))
@@ -1058,7 +1205,7 @@ def main() -> int:
     verb = T(lang, "verb_dry") if args.dry_run else ""
     print(T(lang, "summary", verb=verb, created=created, dup=updated, skipped=skipped,
             cfg=cfg.get("_path")))
-    return 0
+    return 1 if bad else 0
 
 
 if __name__ == "__main__":
