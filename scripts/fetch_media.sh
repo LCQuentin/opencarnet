@@ -40,7 +40,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 for bin in yt-dlp ffmpeg; do
-  command -v "$bin" >/dev/null 2>&1 || { echo "[!] '$bin' absent. brew install $bin" >&2; exit 1; }
+  command -v "$bin" >/dev/null 2>&1 || { echo "[!] '$bin' absent. macOS : brew install $bin · Linux : sudo apt install $bin (ou pipx install yt-dlp)" >&2; exit 1; }
 done
 
 mkdir -p "$OUT"

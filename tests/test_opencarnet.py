@@ -100,6 +100,12 @@ class PivotTest(unittest.TestCase):
         self.assertEqual(P.iso_date("not a date"), "")
         self.assertEqual(P.iso_date("999999999999"), "")             # out of range, no crash
 
+    def test_meta_export_ms_timestamp(self):
+        import parse_meta_export as M
+        it = {"timestamp": 1700000000000, "label_values": [
+            {"label": "URL", "value": "https://www.instagram.com/reel/ABC/"}]}
+        self.assertEqual(M.parse_modern_item(it)["date_source"], "2023-11-14")
+
     def test_make_item_id_stable(self):
         a = P.make_item("https://x.com/i/web/status/1")
         b = P.make_item("x.com/u/status/1")  # same canonical URL
@@ -164,6 +170,10 @@ class CompileHelpersTest(unittest.TestCase):
         self.assertEqual(C.safe_name("a/b:c", "en"), "a-b-c")
         self.assertEqual(C.safe_name("", "en"), "Untitled")
         self.assertEqual(C.safe_name("", "fr"), "Sans titre")
+        self.assertEqual(C.safe_name("..hidden", "en"), "hidden")       # no hidden file
+        long = C.safe_name("日本語" * 100, "en")                         # 900 bytes in
+        self.assertLessEqual(len(long.encode("utf-8")), 200)
+        self.assertTrue(long.startswith("日本語"))                       # no broken char
 
     def test_source_column(self):
         cols = {"nom": "{nom}", "lien": "{source_url}"}
@@ -227,6 +237,19 @@ class EndToEndTest(unittest.TestCase):
         r = run_compile("--analysis", str(a), "--config", str(self.cfg))
         self.assertIn("2 created", r.stdout)
         self.assertEqual(len(self._md()), 2)
+
+    def test_long_title_is_filed(self):
+        a = write_analysis(self.tmp / "a.json", [item("日本語" * 100)])
+        r = run_compile("--analysis", str(a), "--config", str(self.cfg))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(len(self._md()), 1)
+
+    def test_bad_config_json_message(self):
+        self.cfg.write_text("{ not json")
+        r = run_compile("--print-prompt", "--config", str(self.cfg))
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("config", r.stderr)
+        self.assertNotIn("Traceback", r.stderr)
 
     def test_path_traversal_blocked(self):
         outside = Path(tempfile.mkdtemp())

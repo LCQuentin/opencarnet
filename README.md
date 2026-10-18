@@ -119,7 +119,7 @@ git clone https://github.com/LCQuentin/opencarnet
 cd opencarnet
 
 # 1. install the 3 free tools
-brew install yt-dlp ffmpeg
+brew install yt-dlp ffmpeg   # Linux: sudo apt install ffmpeg && pipx install yt-dlp
 python3 -m pip install --user faster-whisper "av==13.1.0"
 python3 -m pip install --user instaloader
 

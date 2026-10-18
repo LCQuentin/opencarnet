@@ -304,6 +304,7 @@ def recap(rows: list[dict], files_seen: int, out: Path) -> None:
 def write_items(rows: list[dict], out: Path, files_seen: int = 0) -> int:
     """Write the pivot CSV + JSON sidecar and print the recap. Returns row count."""
     out = Path(out).expanduser()
+    out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=PIVOT_COLS)
         w.writeheader()

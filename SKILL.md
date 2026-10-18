@@ -24,7 +24,7 @@ text), then analyze it, then file it.
 
 ```bash
 # Download + metadata + frames
-brew install yt-dlp ffmpeg
+brew install yt-dlp ffmpeg   # Linux: sudo apt install ffmpeg && pipx install yt-dlp
 # Transcription (faster-whisper recommended: no torch dependency)
 python3 -m pip install --user faster-whisper
 python3 -m pip install --user "av==13.1.0"   # pin: faster-whisper breaks with av>=14 (metadata_errors)

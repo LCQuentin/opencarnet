@@ -25,16 +25,12 @@ import html
 import json
 import re
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _pivot  # noqa: E402
 
-IG_URL_RE = re.compile(
-    r"https?://(?:www\.)?instagram\.com/(?:p|reel|reels|tv)/([A-Za-z0-9_-]+)",
-    re.IGNORECASE,
-)
+IG_URL_RE = _pivot.IG_RE
 
 LABEL_URL = {"url", "lien", "link"}
 LABEL_CAPTION = {"légende", "legende", "caption", "texte"}
@@ -56,16 +52,6 @@ def fix_mojibake(s: str) -> str:
 def first_ig_url(value: str) -> str | None:
     m = IG_URL_RE.search(value or "")
     return m.group(0) if m else None
-
-
-def iso_from_ts(ts) -> str:
-    if isinstance(ts, (int, float)) and ts:
-        return datetime.fromtimestamp(int(ts), tz=timezone.utc).strftime("%Y-%m-%d")
-    if isinstance(ts, str):
-        if ts.isdigit():
-            return datetime.fromtimestamp(int(ts), tz=timezone.utc).strftime("%Y-%m-%d")
-        return ts[:10]
-    return ""
 
 
 def walk_json(node, path="root"):
@@ -123,7 +109,7 @@ def parse_modern_item(it: dict) -> dict | None:
     id_key = it.get("fbid") or (None if url else f"{auteur}|{it.get('timestamp')}")
     return _pivot.make_item(
         url, auteur=auteur or title, handle=handle,
-        date_source=iso_from_ts(it.get("timestamp")),
+        date_source=_pivot.iso_date(it.get("timestamp")),
         canal="reel" if "/reel" in url else "post",
         legende=caption, hashtags=hashtags, collection="saved",
         id_key=str(id_key) if id_key else None,
@@ -155,7 +141,7 @@ def parse_legacy(data) -> list[dict]:
         if not url and not author:
             continue
         items.append(_pivot.make_item(
-            url, auteur=author, handle=author, date_source=iso_from_ts(saved_on),
+            url, auteur=author, handle=author, date_source=_pivot.iso_date(saved_on),
             canal="reel" if "/reel" in url else "post", collection=
             re.sub(r"\[.*", "", path.split(".")[1]) if "." in path else "saved",
             id_key=None if url else f"{author}|{saved_on}",

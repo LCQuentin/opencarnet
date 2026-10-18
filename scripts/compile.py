@@ -59,6 +59,7 @@ MESSAGES = {
     "en": {
         "config_not_found": "no config found — run `--init`, pass --config, set "
                              "$OPENCARNET_CONFIG, or create ~/.config/opencarnet/config.json",
+        "config_bad_json": "{path}: unreadable config JSON ({err})",
         "formats_not_found": "formats not found: {path}",
         "format_clash": "format \"{fmt}\": reserved field(s) {fields} — rename them.",
         "template_not_found": "template not found: {name} (looked in {dirs})",
@@ -117,6 +118,7 @@ MESSAGES = {
     "fr": {
         "config_not_found": "aucune config trouvée — lancez `--init`, passez --config, définissez "
                             "$OPENCARNET_CONFIG, ou créez ~/.config/opencarnet/config.json",
+        "config_bad_json": "{path} : JSON de config illisible ({err})",
         "formats_not_found": "formats introuvables : {path}",
         "format_clash": "format « {fmt} » : champ(s) réservé(s) {fields} — renommez-les.",
         "template_not_found": "modèle introuvable : {name} (cherché dans {dirs})",
@@ -190,7 +192,10 @@ def detect_lang() -> str:
 def load_config(path: str | None) -> dict:
     for c in ([path] if path else DEFAULT_CONFIG_CANDIDATES):
         if c and Path(c).expanduser().exists():
-            cfg = json.loads(Path(c).expanduser().read_text(encoding="utf-8"))
+            try:
+                cfg = json.loads(Path(c).expanduser().read_text(encoding="utf-8"))
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise SystemExit("[!] " + T(detect_lang(), "config_bad_json", path=c, err=exc)) from None
             cfg["_path"] = str(Path(c).expanduser())
             cfg["formats"] = load_formats(cfg)
             return cfg
@@ -259,7 +264,10 @@ def within_root(root: Path, p: Path) -> bool:
 def safe_name(s: str, lang: str = "en") -> str:
     # caractères interdits dans un nom de fichier ou cassant un [[wikilink]] / tableau
     s = re.sub(r'[/\\:|#^\[\]*"<>?]', "-", str(s)).strip()
-    s = re.sub(r"\s+", " ", s)
+    s = re.sub(r"\s+", " ", s).lstrip(". ")  # pas de fichier caché (« .x.md »)
+    # 255 octets max par nom de fichier (macOS/Linux) : on coupe à 200, sans
+    # casser un caractère multi-octets, pour garder de la marge à « .md ».
+    s = s.encode("utf-8")[:200].decode("utf-8", "ignore").rstrip()
     return s or T(lang, "untitled")
 
 
@@ -893,15 +901,20 @@ def merge_row_source(row: dict, src: str, col: str = "source") -> str:
 
 
 def write_table(path: Path, fmt: str, rows: list[dict], cols: dict, list_sep: str = "; ") -> None:
+    """Écrit dans un fichier temporaire puis le renomme : une interruption en
+    cours d'écriture ne peut pas vider le carnet existant."""
     path.parent.mkdir(parents=True, exist_ok=True)
     if fmt == "jsonl":
-        with path.open("w", encoding="utf-8") as f:
-            for r in rows:
-                if set(r.keys()) == {"_raw"}:
-                    f.write(r["_raw"] + "\n")  # ligne d'origine, préservée
-                else:
-                    f.write(json.dumps(r, ensure_ascii=False) + "\n")
-        return
+        text = "".join(r["_raw"] + "\n" if set(r.keys()) == {"_raw"}  # ligne d'origine, préservée
+                       else json.dumps(r, ensure_ascii=False) + "\n" for r in rows)
+    else:
+        text = csv_text(rows, cols, list_sep)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def csv_text(rows: list[dict], cols: dict, list_sep: str) -> str:
     fieldnames = list(cols.keys())
     for r in rows:
         for k in r:
@@ -912,7 +925,7 @@ def write_table(path: Path, fmt: str, rows: list[dict], cols: dict, list_sep: st
     w.writeheader()
     for r in rows:
         w.writerow({k: cell(r.get(k), list_sep) for k in fieldnames})
-    path.write_text(buf.getvalue(), encoding="utf-8")
+    return buf.getvalue()
 
 
 # ---------- init (guided setup) ----------
